@@ -6,6 +6,28 @@ The IQGeo Network Management Toolkit (NMT) is a modern telecommunications networ
 
 **Key principle**: Explicit containment hierarchy via Foreign Key relationships, not spatial proximity.
 
+## Reference Field Format (URN)
+
+**CRITICAL**: All `reference` fields in NMT use **URN format**: `feature_type/id`
+
+Examples:
+- `manhole/12345` — references manhole with id 12345
+- `fiber_cable/206` — references fiber_cable with id 206
+- `ug_route/185` — references ug_route with id 185
+- `mywcom_fiber_segment/717082` — references a fiber segment
+- `cabinet/5` — references cabinet with id 5
+
+This applies to ALL reference fields in CSVs:
+- `housing`, `root_housing` — e.g., `manhole/140407`, `ug_route/160909`
+- `in_structure`, `out_structure` — e.g., `pole/100`, `wall_box/500`
+- `cable` — e.g., `fiber_cable/71708`
+- `in_segment`, `out_segment` — e.g., `mywcom_fiber_segment/717081`
+- `in_object`, `out_object` — e.g., `mywcom_fiber_segment/847901`
+
+**DO NOT** use bare integer IDs (e.g., `12345`) — they will create broken references that cannot be resolved by the platform. The feature type prefix is required so NMT knows which table to look up the referenced record in.
+
+`reference_set` fields (e.g., `equipment`, `routes`) are **read-only computed fields** — never include them in CSVs.
+
 ## Core Object Types
 
 ### Feature (Base)

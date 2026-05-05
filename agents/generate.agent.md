@@ -146,7 +146,7 @@ Each phase depends on the previous — structures must exist before routes refer
 | `timestamp` | Datetime | created_at |
 | `point` | Point geometry (EWKT in CSV) | location |
 | `linestring` | LineString geometry (EWKT in CSV) | path |
-| `reference` | Cross-type FK (integer ID; NMT resolves across feature types) | housing, in_structure |
+| `reference` | Cross-type FK (**URN format: `feature_type/id`**) | housing → `manhole/123`, cable → `fiber_cable/456` |
 | `reference_set` | Computed reverse-lookup (read-only, never loaded) | equipment, routes |
 | `foreign_key(type)` | FK to specific feature type | specification → `pole_spec` |
 
@@ -156,7 +156,7 @@ Each phase depends on the previous — structures must exist before routes refer
 2. **`id` field must be first**, with `"key": true` and `"generator": "sequence"`
 3. **Geometry field** (`point` or `linestring`) must have `"mandatory": "true"`
 4. **`reference_set` fields are read-only** — never include them in CSVs; they're computed by the platform
-5. **`reference` fields** use integer IDs in CSVs — NMT resolves cross-type (e.g., `in_structure` can point to any structure type)
+5. **`reference` fields** use **URN format** (`feature_type/id`) in CSVs — e.g., `manhole/12345`, `fiber_cable/206`, `mywcom_fiber_segment/717081`. NEVER use bare integer IDs.
 6. **`foreign_key(type)` fields** reference a specific table — value in CSV must be a valid ID in that table
 7. **Custom migration fields** (e.g., `external_ref`) must be added to the `.def` before loading data, or the data will be silently dropped
 8. **Do NOT invent field names** — check the base `.def` from the database; use exact NMT field names
