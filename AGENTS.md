@@ -71,6 +71,21 @@ Reference knowledge: `knowledge/nmt/containment-model.md`, `knowledge/nmt/connec
 
 All agents **must** keep `requirements.txt` up to date. Whenever a Python package is used (imported in generated scripts, tools, or notebooks), add it to `requirements.txt` if not already present. Use the `package>=version` format with a minimum version pin.
 
+## Shared Improvements
+
+When any agent modifies shared resources — files that benefit all migrations, not just the current job — it **must** propose a commit & push (or opening a pull request) at the end of the task. Shared resources include:
+
+- `tools/` — CLI tools, utilities
+- `agents/` — agent instruction files
+- `AGENTS.md` — orchestrator instructions
+- `knowledge/` — NMT schema docs, source-system docs
+- `templates/` — DMDD/DQR/report templates
+- `requirements.txt` — shared dependencies
+
+**Do not** propose commits for job-specific artefacts (`jobs/<name>/` outputs, DMDD mappings, DQR entries, profile reports, generated scripts scoped to a job).
+
+When proposing, briefly list the changed shared files and offer to create a new branch and open a pull request.
+
 ## Knowledge Precedence (highest first)
 
 1. Project-specific — `context.md`, DMDD, DQR
