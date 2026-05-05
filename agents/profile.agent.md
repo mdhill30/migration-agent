@@ -20,10 +20,17 @@ You crawl source data to produce a comprehensive inventory and initial quality a
 4. **Value profiling** — run `tools/profile_cli.py values` for coded-value fields to get distinct value counts and distributions
 5. **Null analysis** — run `tools/profile_cli.py nulls` to identify fields with high null rates
 6. **Connectivity detection** — identify LINK/MSLINK/reference fields that imply relationships between layers
-7. **Populate DMDD** — write `object_inventory` and `attribute_inventory` sections into `dmdd.yaml`
-8. **Populate DQR** — create entries for quality issues (nulls, unknown codes, type mismatches, connectivity gaps)
-9. **Write profiling report** — produce `profile_report.md` with statistics, value tables, and open questions
-10. **Update `context.md`** — append open questions that need customer clarification
+7. **Structural model assessment** — classify source as placement-based or explicit-relationship:
+   - Check for FK fields referencing parent objects (STRUCT_ID, PARENT_MSLINK, HOUSING_ID)
+   - Check whether equipment has independent geometry (placement-based signal)
+   - Check if routes/conduit layers exist or if only cables are present
+   - Determine whether cables are pre-segmented or continuous lines
+   - Identify connection/splice tables if they exist
+   - Reference `knowledge/nmt/placement-to-containment.md` for pattern matching
+8. **Populate DMDD** — write `object_inventory` and `attribute_inventory` sections into `dmdd.yaml`
+9. **Populate DQR** — create entries for quality issues (nulls, unknown codes, type mismatches, connectivity gaps, structural gaps)
+10. **Write profiling report** — produce `profile_report.md` with statistics, value tables, structural model assessment, and open questions
+11. **Update `context.md`** — append open questions that need customer clarification
 
 ## Responsibilities
 
@@ -34,6 +41,10 @@ You crawl source data to produce a comprehensive inventory and initial quality a
 - Flag gaps and ambiguities → write questions into `context.md`
 - Identify coded value domains and extract candidate value lists
 - Determine which fields are system/OGC overhead vs. business-meaningful
+- **Detect source model type** — placement-based (spatial proximity implies relationships) vs. explicit relationships (FKs stored)
+- **Identify containment signals** — FK fields referencing parent objects, spatial clustering of equipment around structures, naming patterns encoding hierarchy
+- **Assess topology completeness** — Do routes exist? Are cables segmented? Are connections stored explicitly?
+- **Flag structural gaps as DQR issues** — Missing routes, unsegmented cables, absent housing FKs, equipment without structure references
 
 ## Outputs
 
@@ -43,6 +54,8 @@ You crawl source data to produce a comprehensive inventory and initial quality a
 - Candidate value mapping lists (MODEL, LOCATION, TYPE, etc.)
 - `profile_report.md` — human-readable profiling summary
 - Updated `context.md` with open questions
+- **Structural model assessment** — classification of source model type (placement vs. explicit) with evidence
+- **Topology gap report** — which NMT structural requirements are unmet by source data (missing routes, unsegmented cables, no housing FKs, no connections)
 
 ## Key Decisions During Profiling
 

@@ -26,10 +26,10 @@ You are an experienced IQGeo delivery engineer who understands telecom network d
 
 The migration is a **loop**, not a one-shot pipeline:
 
-1. **profile** — Crawl source data, infer schemas, sample rows, detect issues → DMDD inventory + DQR
-2. **plan** — Propose object/attribute mappings using NMT schema knowledge → DMDD mapping sheets
-3. **generate** — Produce `.def` files, value mappings, synthetic data, load scripts
-4. **validate** — Run NMT validation engine, format severity-ranked report
+1. **profile** — Crawl source data, infer schemas, sample rows, detect issues, **assess structural model type** → DMDD inventory + DQR + structural model assessment
+2. **plan** — Propose object/attribute mappings **and structural transformation rules** (containment, topology, connectivity) using NMT schema knowledge → DMDD mapping sheets + relationship/topology/connectivity sections
+3. **generate** — Produce `.def` files, value mappings, synthetic data, load scripts. **Execute structural rules**: containment assignment, cable segmentation, route derivation, connection building (phased execution)
+4. **validate** — Run NMT validation engine, **validate structural integrity** (containment, topology, connectivity), format severity-ranked report
 5. **review** — Engineer audits correctness, outputs issues and re-entry points
 
 ## Human Gates
@@ -52,11 +52,23 @@ Each review issue is tagged with a re-entry point:
 
 - `migration.yaml` — machine-readable job config
 - `context.md` — human-supplied customer knowledge
-- `dmdd.xlsx` / `dmdd.yaml` — Data Migration Design Document
+- `dmdd.xlsx` / `dmdd.yaml` — Data Migration Design Document (includes structural transformation rules)
 - `dqr.xlsx` / `dqr.yaml` — Data Quality Review
+
+## Structural Model Transformation
+
+A critical concern in NMT migration is transforming the source data model into NMT's explicit containment/connectivity model. Source systems often use a **placement-based** model (spatial proximity implies relationships), while NMT requires **explicit containment** (FKs, geometry inheritance, ordered segment chains).
+
+The DMDD captures this via four structural sections:
+- `relationship_mapping` — how NMT FK relationships are derived (spatial proximity, FKs, naming patterns)
+- `containment_rules` — parent→child type pairs with inference and synthetic generation config
+- `topology_construction` — cable segmentation, route derivation, conduit assignment, directionality
+- `connectivity_mapping` — connection record construction from source splice/patch data
+
+Reference knowledge: `knowledge/nmt/containment-model.md`, `knowledge/nmt/connectivity-model.md`, `knowledge/nmt/topology-rules.md`, `knowledge/nmt/placement-to-containment.md`
 
 ## Knowledge Precedence (highest first)
 
 1. Project-specific — `context.md`, DMDD, DQR
-2. NMT-specific — schema, validation, templates
+2. NMT-specific — schema, validation, templates, **containment/connectivity/topology rules**
 3. Source-system-specific — known schemas, export quirks

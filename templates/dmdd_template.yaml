@@ -98,6 +98,121 @@ attribute_mapping:
       data_type: ""
       length: ""
       domain: ""              # Source domain/picklist name
+
+# =============================================================================
+# STRUCTURAL MODEL MAPPING
+# =============================================================================
+# The following sections capture how to transform a source model (often
+# placement-based) into NMT's explicit containment/connectivity model.
+# These are critical when source data does not store explicit relationships.
+
+# -----------------------------------------------------------------------------
+# Relationship Mapping — how NMT FK relationships are derived from source data
+# Each entry maps one NMT relationship to its derivation method.
+# -----------------------------------------------------------------------------
+relationship_mapping:
+  - tracking:
+      update_person: ""
+      update_date: ""
+      review_comments: ""
+      status: ""              # One of status_values
+    target_relationship:
+      child_object: ""        # NMT contained object, e.g. "equipment", "cable_segment"
+      parent_object: ""       # NMT housing object, e.g. "structure", "route"
+      fk_field: ""            # NMT FK field, e.g. "root_housing", "housing", "cable_ref"
+      relationship_type: ""   # "containment" | "topology" | "ordering" | "connectivity"
+    derivation:
+      method: ""              # "foreign_key" | "spatial_proximity" | "spatial_intersection"
+                              # | "naming_convention" | "segment_at_structures" | "synthetic"
+      source_fk_field: ""     # Source FK field (if method = foreign_key)
+      proximity_radius_m: 0   # Max distance (if method = spatial_proximity)
+      snap_tolerance_m: 0     # Snap distance (if method = spatial_intersection)
+      naming_pattern: ""      # Regex pattern (if method = naming_convention)
+      parameters: ""          # Additional method-specific parameters (JSON or expression)
+    fallback:
+      method: ""              # Fallback derivation method if primary fails
+      action_on_failure: ""   # "create_dqr_issue" | "assign_dummy" | "reject_record" | "leave_null"
+
+# -----------------------------------------------------------------------------
+# Containment Rules — define the target containment hierarchy for this migration
+# Each entry is a parent→child type pair with inference configuration.
+# -----------------------------------------------------------------------------
+containment_rules:
+  - tracking:
+      update_person: ""
+      update_date: ""
+      review_comments: ""
+      status: ""
+    parent_type: ""           # NMT parent type, e.g. "structure", "route", "equipment"
+    child_type: ""            # NMT child type, e.g. "equipment", "cable_segment", "conduit"
+    inference_method: ""      # How to assign housing (references relationship_mapping method)
+    geometry_inheritance: ""  # "inherit_from_parent" | "override_from_source" (NMT default: inherit)
+    synthetic_generation:
+      enabled: false          # Whether to auto-create parent objects when missing
+      naming_template: ""     # e.g. "${prefix}structure_${seq}"
+      default_type: ""        # e.g. "generic_structure", "splice_closure"
+      conditions: ""          # When to create synthetic objects (expression)
+
+# -----------------------------------------------------------------------------
+# Topology Construction — how to build NMT topology from source data
+# Defines cable segmentation, route derivation, and ordering rules.
+# -----------------------------------------------------------------------------
+topology_construction:
+  route_derivation:
+    method: ""                # "from_source_layer" | "from_cable_geometry" | "from_conduit_geometry" | "manual"
+    source_layer: ""          # Source route/conduit layer (if from_source_layer)
+    start_structure_field: "" # Source FK for start structure
+    end_structure_field: ""   # Source FK for end structure
+    deduplication: ""         # "merge_overlapping" | "keep_all" | "prefer_shortest"
+    parameters: ""            # Additional config
+
+  cable_segmentation:
+    method: ""                # "segment_at_structures" | "from_source_segments" | "preserve_unsegmented"
+    snap_tolerance_m: 0       # Distance to consider a structure "on" a cable path
+    create_internal_segments: true   # Create internal segments at each structure crossing
+    ordering_field: ""        # Source field for segment ordering (if from_source_segments)
+    direction_field: ""       # Source field indicating cable direction
+    forward_flag_rule: ""     # Rule to determine forward flag (e.g. "match_route_direction")
+    parameters: ""
+
+  conduit_assignment:
+    method: ""                # "from_source_fk" | "spatial_containment" | "none"
+    source_fk_field: ""       # Source FK linking cable to conduit
+    continuous_chaining: false # Whether to build conduit chains across routes
+    parameters: ""
+
+  directionality:
+    default_cable_direction: "" # "directed" | "undirected" (default for cables without explicit direction)
+    direction_source_field: ""  # Source field indicating directed/undirected
+    direction_value_map: ""     # Mapping of source values to "directed"/"undirected"
+    parameters: ""
+
+# -----------------------------------------------------------------------------
+# Connectivity Mapping — how to build NMT connection records from source data
+# Defines port assignment, strand mapping, and equipment function rules.
+# -----------------------------------------------------------------------------
+connectivity_mapping:
+  connection_derivation:
+    method: ""                # "from_connection_table" | "from_splice_records" | "from_circuit_data" | "none"
+    source_table: ""          # Source connection/splice table
+    from_object_field: ""     # Source field for "from" object reference
+    from_port_field: ""       # Source field for "from" port/strand
+    to_object_field: ""       # Source field for "to" object reference
+    to_port_field: ""         # Source field for "to" port/strand
+    side_determination: ""    # Rule to determine IN/OUT/A/Z side (e.g. "from_equipment_type")
+    parameters: ""
+
+  strand_mapping:
+    numbering_scheme: ""      # "sequential" | "color_code" | "source_preserving"
+    color_scheme: ""          # e.g. "TIA-598" (if using color codes)
+    strand_count_field: ""    # Source field for fiber/strand count
+    parameters: ""
+
+  equipment_functions:
+    - source_type: ""         # Source equipment type value
+      nmt_function: ""        # NMT function: "pass_through" | "splitter" | "combiner" | "amplifier"
+      port_config: ""         # e.g. "in:1,out:8" for a 1:8 splitter
+      directionality: ""      # "directed" | "undirected"
       sample_value: ""        # Example value from source
 
 # -----------------------------------------------------------------------------
