@@ -35,11 +35,13 @@ Topology construction requires ordered execution:
 1. **Phase 1 — Structures**: Load/create all structure objects (including synthetics)
 2. **Phase 2 — Routes**: Load/derive routes between structures, set start/end_structure FKs
 3. **Phase 3 — Conduits**: Load conduits into routes (if applicable)
-4. **Phase 4 — Cable Segmentation**: Segment cables, assign root_housing, link prev/next, set forward flag
-5. **Phase 5 — Equipment**: Load equipment, assign root_housing via containment rules
-6. **Phase 6 — Connections**: Build connection records from connectivity mapping
+4. **Phase 4 — Cables**: Load fiber_cable records with geometry
+5. **Phase 4b — Fiber Segments** (`mywcom_fiber_segment`): Split cables at structure crossings. Each segment = one route span. Requires structures, routes, and cables to exist first. Uses spatial intersection to find structures along cable geometry, splits at each structure vertex, assigns housing=route.
+6. **Phase 5 — Equipment**: Load equipment (splice_closure, fiber_slack), assign root_housing via containment rules
+7. **Phase 6 — Reference**: Load non-network features (drop_point, building_footprint, general_polygon)
+8. **Phase 7 — Fiber Connections** (`mywcom_fiber_connection`): Build splice records from segment cable-continuity at structures. Requires segments to exist. Where same cable arrives and departs at a structure, create a splice connection. Housing = splice_closure if present, else structure.
 
-Each phase depends on the previous — structures must exist before routes reference them, routes before cable segments are housed in them, etc.
+Each phase depends on the previous — structures must exist before routes reference them, routes before cable segments are housed in them, segments before connections reference them.
 
 ## Outputs
 
@@ -246,7 +248,32 @@ Fields commonly missing from base NMT schema:
 The `load.sh` script supports three modes:
 - `--transform-only` — run Python transforms, produce CSVs, no database writes
 - `--load-only` — skip transforms, load existing CSVs into database
-- `--phase N` — run only phase N (1–6)
+- `--phase N` — run only phase N (1, 2, 3, 4, 4b, 5, 6, 7)
 - No flags — full pipeline (transform + load)
 
 Always run `--transform-only` first to verify CSV output before loading.
+
+### Segment Generation (Phase 4b)
+
+Segment transform scripts derive `mywcom_fiber_segment` records from cables + structures:
+- Load all structures into a spatial index (keyed by `external_ref`)
+- Load routes into a lookup keyed by `(in_structure_ref, out_structure_ref)` (both orderings)
+- Walk each cable's vertices; match structures within `SNAP_TOLERANCE` (~0.0003° ≈ 30m)
+- Split cable linestring at each matched structure point → one segment per span
+- Assign `housing = route` by looking up the route matching segment endpoints
+- Set `forward = True` if segment direction matches route (in→out)
+- Output: CSV with columns `cable, housing, root_housing, directed, forward, in_structure, out_structure, in_segment, out_segment, length, path`
+
+**Expected results**: ~73% of cables produce segments; ~27% have no structure match (short drops). Typical ratio: 0.7–0.8 segments per cable.
+
+### Connection Generation (Phase 7)
+
+Connection transform scripts derive `mywcom_fiber_connection` splice records from segments:
+- Group segments by cable, then by structure (where cable arrives/departs)
+- At each structure where same cable has arriving segment (out_structure=X) AND departing segment (in_structure=X), create splice connection
+- Housing preference: splice_closure at structure > structure itself
+- Use `in_side="east", out_side="west"` convention for cable-continuity splices
+- Set `in_low=1, in_high=1, out_low=1, out_high=1` for per-strand or cable count for full-width
+- Output: CSV with columns `in_object, out_object, in_side, in_low, in_high, out_side, out_low, out_high, splice, housing, root_housing, location`
+
+**Expected results**: ~1.8 connections per segment (cables typically cross multiple structures). 0 splice_closures indexed in first pass is normal if equipment hasn't been loaded with proper `root_housing` referencing structures.

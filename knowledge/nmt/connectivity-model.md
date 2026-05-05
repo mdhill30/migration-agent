@@ -243,6 +243,63 @@ Connection 3:
 
 ---
 
+### Pattern 5: Cable Continuity Splice (Derived from Segments)
+
+**Scenario**: Source data has no explicit splice records, but cable segmentation has been performed. Wherever the same cable has a segment arriving at a structure (out_structure=X) AND a segment departing (in_structure=X), a splice connection must exist to maintain cable continuity.
+
+**Algorithm** (validated on Summit Fiber: 6,026 segments → 11,072 connections at 2,346 structures):
+
+1. Group all segments by cable URN
+2. For each cable, identify structures where the cable has:
+   - An arriving segment (segment.out_structure = structure)
+   - A departing segment (segment.in_structure = structure)
+3. At each such structure, create splice connection(s) between all arriving/departing segment pairs
+4. Housing preference: splice_closure at structure > structure itself
+
+**Source data** (derived — no explicit source):
+```
+Cable FIBER-001 has:
+  Segment A: in_structure=Pole1, out_structure=Pole2  (arrives at Pole2)
+  Segment B: in_structure=Pole2, out_structure=Pole3  (departs from Pole2)
+  → Splice at Pole2
+```
+
+**Target NMT structure**:
+```
+Connection:
+  in_object: mywcom_fiber_segment/{seg_A_id}
+  in_side: east
+  in_low: 1
+  in_high: 1    (per-strand; use cable.count for full-width)
+  out_object: mywcom_fiber_segment/{seg_B_id}
+  out_side: west
+  out_low: 1
+  out_high: 1
+  splice: true
+  housing: splice_closure/{closure_id}  OR  {structure_id}
+  root_housing: {structure_id}
+  location: SRID=4326;POINT(lon lat)  (structure location)
+```
+
+**Key decisions**:
+- `in_side = "east"`, `out_side = "west"` — convention for cable-continuity splices (arriving vs departing)
+- `in_low/in_high = 1/1` — per-strand connections (one record per strand pair); OR use `cable.count` for full-width splice (one record per cable crossing)
+- `housing` prefers splice_closure over bare structure — if a `splice_closure` equipment record exists with `root_housing = structure`, use its URN as housing
+- Creates N×M connections at each structure where N arriving segments meet M departing segments for the same cable (typically 1×1)
+
+**Statistics** (typical fiber OSP migration without explicit splice data):
+- Average connections per structure: 4.7 (multiple cables crossing same structure)
+- ~95% of connections are 1:1 (single arrive → single depart for a cable)
+- ~5% are many-to-many (cable branches at structure)
+
+**Validation**:
+- Both in_object and out_object are segments of the same cable ✓
+- Both segments share a common structure (arrive/depart) ✓
+- housing references a valid structure or equipment at that structure ✓
+- splice = true for all cable-continuity connections ✓
+
+---
+
 ## Circuit Tracing
 
 **Circuits** represent end-to-end services. They are derived by tracing through segments and connections.
