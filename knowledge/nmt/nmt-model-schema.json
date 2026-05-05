@@ -1,0 +1,400 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IQGeo NMT Model Schema",
+  "description": "Comprehensive JSON Schema for IQGeo Network Management Toolkit objects",
+  "x-platformCalculatedFields": {
+    "notes": "Fields with value: method(...) or value: select(...) in IQGeo .def metadata. Never loaded during migration — platform computes at runtime. Both method() and select() are calculated field types.",
+    "structure.equipment": "select(), read_only reference_set",
+    "structure.routes": "select(), read_only reference_set",
+    "structure.in_fiber_segments": "method(in_fiber_segments), read_only reference_set",
+    "structure.out_fiber_segments": "method(out_fiber_segments), read_only reference_set",
+    "structure.cables": "method(cables), read_only reference_set",
+    "structure.fiber_connections": "select(mywcom_fiber_connection.housing), reference_set (cabinet)",
+    "route.in_structure": "reference, read_only (set by platform from geometry)",
+    "route.out_structure": "reference, read_only (set by platform from geometry)",
+    "route.cable_segments": "select(mywcom_fiber_segment.housing,...), read_only reference_set",
+    "route.cables": "method(cables), read_only reference_set",
+    "route.conduits": "select(), read_only reference_set (ug_route)",
+    "cable.cable_segments": "select(mywcom_fiber_segment.cable), reference_set",
+    "cable.cable_slacks": "select(mywcom_fiber_slack.cable), reference_set",
+    "cable.splices": "method(splices), read_only reference_set",
+    "cable.connections": "method(connections), read_only reference_set",
+    "cable.length": "method(length) (copper_cable only)",
+    "segment.fiber_connections": "select(mywcom_fiber_connection.in_object,...), reference_set",
+    "segment.circuit_segments": "select(mywcom_circuit_segment.cable_segment), reference_set",
+    "conduit.conduits": "select(), reference_set",
+    "conduit.cable_segments": "select(mywcom_fiber_segment.housing,...), reference_set",
+    "conduit.cables": "method(cables), read_only reference_set",
+    "equipment.fiber_connections": "select(mywcom_fiber_connection.in_object,...), reference_set",
+    "equipment.cables": "method(cables), read_only reference_set",
+    "equipment.equipment": "select(), reference_set",
+    "circuit.circuit_paths": "select(circuit_path.logical_circuit), reference_set"
+  },
+  "definitions": {
+    "Feature": {
+      "type": "object",
+      "title": "Feature",
+      "description": "Base object for all NMT features. Provides common attributes: id, name, audit trail, source system reference.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier (URN format)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name"
+        },
+        "sourceSystemRef": {
+          "type": "string",
+          "description": "Reference to source system record"
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "modifiedDate": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Structure": {
+      "type": "object",
+      "title": "Structure",
+      "description": "Point-based physical structure (pole, pedestal, building, cabinet, etc.). Top-level anchor for containment hierarchy.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "specification": {
+          "type": "string",
+          "description": "Structure type reference (e.g., 'pole_wood_35ft', 'pedestal_composite')"
+        },
+        "location": {
+          "$ref": "#/definitions/Point",
+          "description": "Geographic location (GeoJSON Point)"
+        },
+        "laborCosts": {
+          "type": "string",
+          "description": "Installation cost estimate"
+        },
+        "address": {
+          "type": "string",
+          "description": "Street address or location description"
+        },
+        "in_fiber_segments": {
+          "type": "array",
+          "description": "Calculated reference set of incoming fiber segment URNs (from mywcom_fiber_segment)",
+          "items": {"type": "string"},
+          "readOnly": true
+        },
+        "out_fiber_segments": {
+          "type": "array",
+          "description": "Calculated reference set of outgoing fiber segment URNs (from mywcom_fiber_segment)",
+          "items": {"type": "string"},
+          "readOnly": true
+        }
+      },
+      "required": ["location"]
+    },
+    "Equipment": {
+      "type": "object",
+      "title": "Equipment",
+      "description": "Point feature inside a Structure or nested Equipment. Organizes connection points (ports, terminals).",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "specification": {
+          "type": "string",
+          "description": "Equipment type (e.g., 'patch_panel_24port', 'splitter_1x8')"
+        },
+        "housing": {
+          "type": "string",
+          "description": "Direct parent: Structure or Equipment URN"
+        },
+        "rootHousing": {
+          "type": "string",
+          "description": "Top-level Structure URN"
+        },
+        "circuits": {
+          "type": "array",
+          "description": "QURN list of circuits passing through this equipment",
+          "items": {"type": "string"}
+        },
+        "location": {
+          "$ref": "#/definitions/Point",
+          "description": "Location within parent (GeoJSON Point)"
+        },
+        "laborCosts": {
+          "type": "string"
+        }
+      },
+      "required": ["housing", "rootHousing"]
+    },
+    "Route": {
+      "type": "object",
+      "title": "Route",
+      "description": "Linear physical path between two Structures. Parent for Conduits and Segments.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "inStructure": {
+          "type": "string",
+          "description": "Starting Structure URN"
+        },
+        "outStructure": {
+          "type": "string",
+          "description": "Ending Structure URN"
+        },
+        "length": {
+          "type": "number",
+          "description": "Route length in meters"
+        },
+        "path": {
+          "$ref": "#/definitions/LineString",
+          "description": "Geographic path (GeoJSON LineString)"
+        },
+        "laborCosts": {
+          "type": "string"
+        }
+      },
+      "required": ["path"]
+    },
+    "Conduit": {
+      "type": "object",
+      "title": "Conduit",
+      "description": "Logical container for cables. May be discrete (single span) or continuous (multi-pole chain).",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "specification": {
+          "type": "string",
+          "description": "Conduit type (e.g., 'pvc_3inch', 'duct_bank_4way', 'aerial_messenger')"
+        },
+        "housing": {
+          "type": "string",
+          "description": "Direct parent: Route or Structure URN"
+        },
+        "rootHousing": {
+          "type": "string",
+          "description": "Top-level Structure URN"
+        },
+        "inStructure": {
+          "type": "string",
+          "description": "Entry Structure URN"
+        },
+        "outStructure": {
+          "type": "string",
+          "description": "Exit Structure URN"
+        },
+        "inConduit": {
+          "type": "string",
+          "description": "Previous Conduit in chain (continuous conduits only)"
+        },
+        "outConduit": {
+          "type": "string",
+          "description": "Next Conduit in chain (continuous conduits only)"
+        },
+        "conduitRun": {
+          "type": "string",
+          "description": "Parent ConduitRun URN (groups continuous chain)"
+        },
+        "path": {
+          "$ref": "#/definitions/LineString",
+          "description": "Conduit path (GeoJSON LineString)"
+        },
+        "laborCosts": {
+          "type": "string"
+        }
+      },
+      "required": ["housing", "rootHousing"]
+    },
+    "Cable": {
+      "type": "object",
+      "title": "Cable",
+      "description": "Transmission medium (fiber, copper, coax) carrying signals. Parent for Segments.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "specification": {
+          "type": "string",
+          "description": "Cable type reference (e.g., 'singlemode_sm28', 'copper_25pair_cat5')"
+        },
+        "technology": {
+          "type": "string",
+          "enum": ["fiber", "copper", "coax"],
+          "description": "Physical transmission medium"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Number of strands/pairs in cable"
+        },
+        "directed": {
+          "type": "boolean",
+          "description": "True if distribution cable (directional flow)"
+        },
+        "path": {
+          "$ref": "#/definitions/LineString",
+          "description": "Cable routing path (GeoJSON LineString)"
+        },
+        "laborCosts": {
+          "type": "string"
+        }
+      },
+      "required": ["technology", "count"]
+    },
+    "Segment": {
+      "type": "object",
+      "title": "Segment",
+      "description": "Cable footprint within a single Route or Conduit. Ordered chain of Segments forms complete Cable.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "cable": {
+          "type": "string",
+          "description": "Parent Cable URN"
+        },
+        "housing": {
+          "type": "string",
+          "description": "Direct parent: Route or Conduit URN"
+        },
+        "rootHousing": {
+          "type": "string",
+          "description": "Top-level Structure URN"
+        },
+        "directed": {
+          "type": "boolean",
+          "description": "Direction flag for segment"
+        },
+        "circuits": {
+          "type": "array",
+          "description": "QURN list of circuits using this segment",
+          "items": {"type": "string"}
+        },
+        "sequenceOrder": {
+          "type": "integer",
+          "description": "Order of segment in cable chain (0-based)"
+        }
+      },
+      "required": ["cable", "housing", "rootHousing"]
+    },
+    "Circuit": {
+      "type": "object",
+      "title": "Circuit",
+      "description": "Service/logical path through network. References Segments; does not own them.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "inFeature": {
+          "type": "string",
+          "description": "Serving equipment URN (Structure or Equipment)"
+        },
+        "inPins": {
+          "type": "string",
+          "description": "Serving port(s) range (e.g., '1-4')"
+        },
+        "outFeature": {
+          "type": "string",
+          "description": "Terminating equipment URN"
+        },
+        "outPins": {
+          "type": "string",
+          "description": "Terminating port(s) range"
+        },
+        "path": {
+          "$ref": "#/definitions/LineString",
+          "description": "Circuit path rendered for visualization (GeoJSON LineString)"
+        },
+        "circuitType": {
+          "type": "string",
+          "description": "Circuit type (e.g., 'voice', 'data', 'wavelength', 'epipe')"
+        }
+      },
+      "required": ["inFeature", "outFeature"]
+    },
+    "Connection": {
+      "type": "object",
+      "title": "Connection",
+      "description": "Explicit point-to-point relationship: splice, patch cord, cross-connect.",
+      "allOf": [{"$ref": "#/definitions/Feature"}],
+      "properties": {
+        "inObject": {
+          "type": "string",
+          "description": "Source object URN (Segment, Equipment, Circuit, Structure)"
+        },
+        "inSide": {
+          "type": "string",
+          "description": "Source side/port name (e.g., 'east', 'north', 'port_1')"
+        },
+        "inLow": {
+          "type": "integer",
+          "description": "Start of strand/port range"
+        },
+        "inHigh": {
+          "type": "integer",
+          "description": "End of strand/port range"
+        },
+        "outObject": {
+          "type": "string",
+          "description": "Destination object URN"
+        },
+        "outSide": {
+          "type": "string",
+          "description": "Destination side/port name"
+        },
+        "outLow": {
+          "type": "integer",
+          "description": "Start of destination strand/port range"
+        },
+        "outHigh": {
+          "type": "integer",
+          "description": "End of destination strand/port range"
+        },
+        "splice": {
+          "type": "boolean",
+          "description": "True if connecting two Segments (cable splice)"
+        },
+        "housing": {
+          "type": "string",
+          "description": "Immediate location Structure/Equipment URN"
+        },
+        "rootHousing": {
+          "type": "string",
+          "description": "Top-level Structure URN"
+        },
+        "connectionType": {
+          "type": "string",
+          "description": "Semantic type: 'splice', 'patch', 'cross_connect', 'termination'"
+        }
+      },
+      "required": ["inObject", "outObject", "housing"]
+    },
+    "Point": {
+      "type": "object",
+      "title": "GeoJSON Point",
+      "properties": {
+        "type": {"enum": ["Point"]},
+        "coordinates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": {"type": "number"},
+          "description": "[longitude, latitude] or [longitude, latitude, elevation]"
+        }
+      },
+      "required": ["type", "coordinates"]
+    },
+    "LineString": {
+      "type": "object",
+      "title": "GeoJSON LineString",
+      "properties": {
+        "type": {"enum": ["LineString"]},
+        "coordinates": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "items": {"type": "number"}
+          },
+          "description": "Array of [longitude, latitude] coordinates"
+        }
+      },
+      "required": ["type", "coordinates"]
+    }
+  }
+}
