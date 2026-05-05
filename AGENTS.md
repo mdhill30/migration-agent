@@ -67,6 +67,10 @@ The DMDD captures this via four structural sections:
 
 Reference knowledge: `knowledge/nmt/containment-model.md`, `knowledge/nmt/connectivity-model.md`, `knowledge/nmt/topology-rules.md`, `knowledge/nmt/placement-to-containment.md`
 
+## Dependency Tracking
+
+All agents **must** keep `requirements.txt` up to date. Whenever a Python package is used (imported in generated scripts, tools, or notebooks), add it to `requirements.txt` if not already present. Use the `package>=version` format with a minimum version pin.
+
 ## Knowledge Precedence (highest first)
 
 1. Project-specific — `context.md`, DMDD, DQR
