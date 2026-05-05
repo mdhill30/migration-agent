@@ -86,14 +86,40 @@ Circuits:          567
 ---
 
 ### load
-Load enumerators, feature definitions, and data from source files.
+Load enumerators, feature definitions, and data from CSV/XML files.
 
 ```bash
-myw_db iqgeo load --file definitions.xml
+myw_db iqgeo load file1.csv file2.csv [--update_sequence] [--reload]
 ```
 
-**Input**: XML feature definitions and value lists.  
-**Use case**: Load NMT specifications (cable types, equipment specs, etc.).
+**Key options**:
+- `--update_sequence` — Update ID sequence high-water-mark after load
+- `--reload` — Drop existing data before loading
+- `--update` — Update existing records with changes
+- `--coord_system NAME` — Source coordinate system (auto-detects SRID from EWKT)
+
+**Feature type inference**: The filename determines the target table. `oh_route.csv` loads into `oh_route`.
+
+**CRITICAL — CSV Quoting for URN Reference Fields**:
+
+`myw_db load` interprets unquoted values containing `/` as path separators and strips the type prefix. **All URN reference fields MUST be double-quoted** in CSVs to preserve the full `feature_type/id` format.
+
+Correct:
+```csv
+id,path,in_structure,out_structure
+170272,"SRID=31370;LINESTRING(...)","wall_box/195453","manhole/130549"
+```
+
+Incorrect (URN will be stripped to bare integer):
+```csv
+id,path,in_structure,out_structure
+170272,"SRID=31370;LINESTRING(...)",wall_box/195453,manhole/130549
+```
+
+Fields that require quoting: `in_structure`, `out_structure`, `housing`, `root_housing`, `cable`, `in_segment`, `out_segment`, `in_object`, `out_object` — any field containing a URN reference.
+
+**Use case**: Load migration CSV data into NMT tables.  
+**Input**: CSV files with headers matching NMT column names.
 
 ---
 

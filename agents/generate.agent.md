@@ -157,7 +157,8 @@ Each phase depends on the previous — structures must exist before routes refer
 3. **Geometry field** (`point` or `linestring`) must have `"mandatory": "true"`
 4. **`reference_set` fields are read-only** — never include them in CSVs; they're computed by the platform
 5. **`reference` fields** use **URN format** (`feature_type/id`) in CSVs — e.g., `manhole/12345`, `fiber_cable/206`, `mywcom_fiber_segment/717081`. NEVER use bare integer IDs.
-6. **`foreign_key(type)` fields** reference a specific table — value in CSV must be a valid ID in that table
+6. **URN fields MUST be double-quoted in CSVs** — Without quotes, `myw_db load` strips the type prefix (e.g., `wall_box/195453` becomes `195453`). When writing CSVs, quote any field value containing `/`. Use Python's `csv` module and ensure URN fields are quoted.
+7. **`foreign_key(type)` fields** reference a specific table — value in CSV must be a valid ID in that table
 7. **Custom migration fields** (e.g., `external_ref`) must be added to the `.def` before loading data, or the data will be silently dropped
 8. **Do NOT invent field names** — check the base `.def` from the database; use exact NMT field names
 

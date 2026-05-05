@@ -26,6 +26,8 @@ This applies to ALL reference fields in CSVs:
 
 **DO NOT** use bare integer IDs (e.g., `12345`) — they will create broken references that cannot be resolved by the platform. The feature type prefix is required so NMT knows which table to look up the referenced record in.
 
+**CSV Quoting**: URN reference fields **MUST be double-quoted** in CSV files for `myw_db load`. Without quotes, `myw_db` strips the type prefix (e.g., `wall_box/195453` becomes `195453`). Use Python's `csv` module with quoting logic that quotes any field containing `/`.
+
 `reference_set` fields (e.g., `equipment`, `routes`) are **read-only computed fields** — never include them in CSVs.
 
 ## Core Object Types
