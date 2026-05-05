@@ -268,11 +268,11 @@ Cable FIBER-001 has:
 ```
 Connection:
   in_object: mywcom_fiber_segment/{seg_A_id}
-  in_side: east
+  in_side: out
   in_low: 1
   in_high: 1    (per-strand; use cable.count for full-width)
   out_object: mywcom_fiber_segment/{seg_B_id}
-  out_side: west
+  out_side: in
   out_low: 1
   out_high: 1
   splice: true
@@ -281,8 +281,19 @@ Connection:
   location: SRID=4326;POINT(lon lat)  (structure location)
 ```
 
-**Key decisions**:
-- `in_side = "east"`, `out_side = "west"` — convention for cable-continuity splices (arriving vs departing)
+**Key decisions — Side Assignment Rule for Directed Segments**:
+
+The `in_side`/`out_side` on a connection record identifies **which end of the segment** is at the housing (splice location):
+- If `segment.out_structure = housing` → the segment's **out** end is here → use side `"out"`
+- If `segment.in_structure = housing` → the segment's **in** end is here → use side `"in"`
+
+In Pattern 5 (cable continuity):
+- Segment A *arrives* at Pole2 (its `out_structure = Pole2`) → `in_side = "out"`
+- Segment B *departs* from Pole2 (its `in_structure = Pole2`) → `out_side = "in"`
+
+**CRITICAL**: Do NOT confuse "arriving/departing cable direction" with side values. The side refers to the segment's own endpoint label, not the cable's travel direction.
+
+Additional decisions:
 - `in_low/in_high = 1/1` — per-strand connections (one record per strand pair); OR use `cable.count` for full-width splice (one record per cable crossing)
 - `housing` prefers splice_closure over bare structure — if a `splice_closure` equipment record exists with `root_housing = structure`, use its URN as housing
 - Creates N×M connections at each structure where N arriving segments meet M departing segments for the same cable (typically 1×1)

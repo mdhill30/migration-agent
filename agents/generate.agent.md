@@ -41,6 +41,14 @@ Topology construction requires ordered execution:
 7. **Phase 6 — Reference**: Load non-network features (drop_point, building_footprint, general_polygon)
 8. **Phase 7 — Fiber Connections** (`mywcom_fiber_connection`): Build splice records from segment cable-continuity at structures. Requires segments to exist. Where same cable arrives and departs at a structure, create a splice connection. Housing = splice_closure if present, else structure.
 
+   **Side assignment rule** (CRITICAL — common source of inversion bugs):
+   - The `in_side`/`out_side` on a connection identifies **which end of the referenced segment** is at the housing
+   - If `segment.out_structure = housing` → side = `"out"` (the segment's OUT end is here)
+   - If `segment.in_structure = housing` → side = `"in"` (the segment's IN end is here)
+   - Do NOT confuse cable travel direction with side values — side refers to the segment's own endpoint label
+
+   **Deduplication**: Source data may contain multiple fibre records per segment (one per tube/ribbon). When resolving source splice/connection records to NMT connections, deduplicate on `(in_object, in_side, in_low, out_object, out_side, out_low)` before writing. Multiple source records mapping to the same physical connection must produce only one output record.
+
 Each phase depends on the previous — structures must exist before routes reference them, routes before cable segments are housed in them, segments before connections reference them.
 
 ## Outputs
