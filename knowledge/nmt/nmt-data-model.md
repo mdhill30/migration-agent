@@ -131,21 +131,143 @@ All NMT objects inherit from `Feature`, which provides:
 
 ---
 
+### Inside Plant (Building Internals)
+
+**Inside Plant** features model the internal structure of buildings, data centers, and large structures — providing containment hierarchy below the Structure level.
+
+#### Floor
+- **Base**: Point feature inside a Structure
+- **Attributes**:
+  - `name` — Floor identifier (e.g., "Ground", "Level 1")
+  - `housing` — Direct parent (Structure or Equipment URN) — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Child equipment housed on this floor — `read_only` reference_set
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `labor_costs` — Installation cost
+  - `location` — GeoJSON Point
+- **Containment role**: Intermediate container within Structure → Floor → Room → Rack
+
+#### Room
+- **Base**: Point feature inside a Floor
+- **Attributes**:
+  - `name` — Room identifier (e.g., "Comms Room A")
+  - `housing` — Direct parent (Floor URN) — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Child equipment in this room — `read_only` reference_set
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `labor_costs` — Installation cost
+  - `location` — GeoJSON Point
+- **Containment role**: Contains Racks, Slots, and Equipment
+
+#### Rack
+- **Base**: Point feature inside a Room (or directly in a Structure)
+- **Attributes**:
+  - `name` — Rack identifier (e.g., "Rack-01")
+  - `housing` — Direct parent (Room or Structure URN) — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Equipment mounted in this rack — `read_only` reference_set
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `labor_costs` — Installation cost
+  - `location` — GeoJSON Point
+- **Containment role**: Contains Slots and Equipment
+
+#### Slot
+- **Base**: Point feature inside a Rack
+- **Attributes**:
+  - `name` — Slot identifier (e.g., "U1", "U12")
+  - `housing` — Direct parent (Rack URN) — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Equipment in this slot — `read_only` reference_set
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `labor_costs` — Installation cost
+  - `location` — GeoJSON Point
+- **Containment role**: Leaf container for Equipment
+
+#### Splice Closure
+- **Base**: Point feature inside a Structure or Equipment
+- **Attributes**:
+  - `name` — Closure identifier
+  - `specification` — Type reference (`foreign_key(splice_closure_spec)`)
+  - `housing` — Direct parent (Structure or Equipment URN) — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Child equipment — `read_only` reference_set
+  - `fiber_splices` — `select(mywcom_fiber_connection.housing)` — connections housed here
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `loss` — Splice loss (dB)
+  - `location` — GeoJSON Point
+- **Containment role**: Organizes fiber splices at a junction
+
+#### Rack Suite (Inside Plant module)
+- **Base**: Point feature with layout definition
+- **Attributes**:
+  - `name` — Suite identifier
+  - `housing` — Direct parent — `read_only`
+  - `root_housing` — Top-level Structure URN — `read_only`
+  - `equipment` — Equipment in this suite — `read_only` reference_set
+  - `circuits` — Circuits passing through — `read_only` reference_set
+  - `layout` — JSONB rack layout definition
+  - `vertical_spacing` / `horizontal_spacing` — Rack spacing (meters)
+  - `populate_with` — JSONB auto-population template
+  - `labor_costs` — Installation cost
+  - `location` — GeoJSON Point
+- **Containment role**: Groups multiple racks in a defined physical layout
+
+**Inside Plant containment hierarchy**:
+```
+Structure
+└── Floor
+    └── Room
+        ├── Rack
+        │   └── Slot
+        │       └── Equipment
+        ├── Rack Suite
+        │   └── Rack → Slot → Equipment
+        └── Splice Closure
+            └── Equipment
+```
+
+---
+
 ### Circuits (Services/Logical Paths)
 
-**Circuits** represent services (data flows, voice calls, wavelengths) traveling through the network.
+**Circuits** represent services (data flows, voice calls, wavelengths) traveling through the network. NMT has three circuit types.
 
-#### Circuit
-- **Base**: Logical path with LineString rendering for visualization
+#### Logical Circuit
+- **Base**: LineString geometry representing the logical path
 - **Attributes**:
   - `name` — Circuit identifier
-  - `inFeature` — Serving equipment (Structure or Equipment URN)
-  - `inPins` — Serving port(s) range (e.g., "1-4")
-  - `outFeature` — Terminating equipment URN
-  - `outPins` — Terminating port(s) range
-  - `path` — GeoJSON LineString (derived from Segments)
-- **Relationship**: References Segments via `circuits` attribute; does **not** own them
-- **Examples**: "VOICE-CIRCUIT-001", "DATA-WAVELENGTH-CH3"
+  - `in_feature` — Source equipment/structure URN — `read_only`
+  - `out_feature` — Destination equipment/structure URN — `read_only`
+  - `circuit_paths` — `select(circuit_path.logical_circuit)` — ordered path segments (calculated)
+  - `path` — GeoJSON LineString
+- **Relationship**: Composed of ordered CircuitPath segments
+- **Examples**: "BACKBONE-CIRCUIT-001", "METRO-RING-CH3"
+
+#### Circuit Path
+- **Base**: LineString segment of a Logical Circuit
+- **Attributes**:
+  - `name` — Path segment identifier
+  - `status` — Circuit status (enum: `circuit_status`)
+  - `in_feature` — Entry point URN — `read_only`
+  - `in_pins` — Entry port/strand range
+  - `out_feature` — Exit point URN — `read_only`
+  - `out_pins` — Exit port/strand range
+  - `logical_circuit` — Parent Logical Circuit reference (FK)
+- **Role**: Individual hop in an end-to-end circuit; platform resolves physical path
+
+#### FTTH Circuit
+- **Base**: LineString geometry (fiber-to-the-home specific)
+- **Attributes**:
+  - `name` — Circuit identifier
+  - `in_feature` — OLT/splitter equipment URN — `read_only`
+  - `in_pins` — Source port range
+  - `out_feature` — ONT/customer equipment URN — `read_only`
+  - `out_pins` — Destination port range
+  - `connected` — Boolean (platform-set, `read_only`) — whether circuit is physically complete
+  - `path` — GeoJSON LineString
+  - `address` — Customer address reference (FK used by address.circuits select)
+- **Role**: Specialized circuit for FTTH deployments; links to Address for service tracking
+- **Examples**: "FTTH-001-SMITH", "GPON-PORT3-ONT42"
 
 ---
 
@@ -181,6 +303,15 @@ The NMT model enforces a **strict containment hierarchy**:
 
 ```
 Structure
+├── Floor
+│   └── Room
+│       ├── Rack
+│       │   └── Slot
+│       │       └── Equipment
+│       ├── Rack Suite
+│       │   └── Rack → Slot → Equipment
+│       └── Splice Closure
+│           └── Equipment
 ├── Equipment
 │   ├── Equipment (nested)
 │   └── Conduit (starts/ends here)
@@ -197,6 +328,7 @@ Structure
 2. **Every Conduit must have a `housing`** (parent Route or Structure)
 3. **Root housing** attributes trace back to top-level Structure
 4. **Cables never contain objects**; they traverse Segments
+5. **Inside Plant objects** (Floor, Room, Rack, Slot) chain via `housing` back to Structure
 
 ---
 
