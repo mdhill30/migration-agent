@@ -2,10 +2,10 @@
 description: Profile source data — schema inference, sampling, gap detection, DMDD inventory population
 user-invocable: false
 tools:
-  - run_in_terminal
-  - read_file
-  - create_file
-  - replace_string_in_file
+    - run_in_terminal
+    - read_file
+    - create_file
+    - replace_string_in_file
 ---
 
 # Profile Agent
@@ -61,38 +61,41 @@ You crawl source data to produce a comprehensive inventory and initial quality a
 
 ### Include/Exclude Logic
 
-- **Include = "Yes"**: Network assets (structures, routes, cables, equipment, boundaries)
-- **Include = "No"**: Annotations, reference layers, labels with < 10 features
-- **Include = "Pending Review"**: Ambiguous layers (HOUSECOUNT, metadata-heavy layers)
+-   **Include = "Yes"**: Network assets (structures, routes, cables, equipment, boundaries)
+-   **Include = "No"**: Annotations, reference layers, labels with < 10 features
+-   **Include = "Pending Review"**: Ambiguous layers (HOUSECOUNT, metadata-heavy layers)
 
 ### Attribute Filtering
 
 Exclude from `attribute_inventory` (system overhead, not business data):
-- `X_OGC_GEOM`, `Y_OGC_GEOM`, `Z_OGC_GEOM` — OGC geometry fields (redundant with geometry)
-- `XScale_OGC`, `YScale_OGC`, `ZScale_OGC` — scale factors
-- `Rotation_O` — rotation (annotation styling)
-- `XFM_ID` — internal system transform ID
+
+-   `X_OGC_GEOM`, `Y_OGC_GEOM`, `Z_OGC_GEOM` — OGC geometry fields (redundant with geometry)
+-   `XScale_OGC`, `YScale_OGC`, `ZScale_OGC` — scale factors
+-   `Rotation_O` — rotation (annotation styling)
+-   `XFM_ID` — internal system transform ID
 
 Include with "No" flag:
-- `COORD_X`, `COORD_Y`, `LATCOORD`, `LONCOORD` — redundant coordinates (geometry already carries position)
-- `CREATEDBY`, `UPDATEDBY` — audit fields (not migrated)
+
+-   `COORD_X`, `COORD_Y`, `LATCOORD`, `LONCOORD` — redundant coordinates (geometry already carries position)
+-   `CREATEDBY`, `UPDATEDBY` — audit fields (not migrated)
 
 ### CRS Detection
 
 For shapefiles: read `.prj` file directly. Common patterns:
-- Florida State Plane: EPSG:2236 (East, feet), EPSG:2237 (West, feet)
-- NAD83 variants: check datum, false easting, central meridian
-- Unit detection: "Foot" = US Survey Feet (divide by 0.3048 differs from meter)
+
+-   Florida State Plane: EPSG:2236 (East, feet), EPSG:2237 (West, feet)
+-   NAD83 variants: check datum, false easting, central meridian
+-   Unit detection: "Foot" = US Survey Feet (divide by 0.3048 differs from meter)
 
 ## Behaviour
 
-- Read `migration.yaml` for source location and CRS
-- Read `context.md` for known terminology and overrides
-- Use `tools/profile_cli.py` for compute-heavy operations (preferred over inline Python)
-- Report ambiguities rather than guessing
-- Be conservative with Include? flags — flag uncertain items for human review
-- When value meaning is unclear, propose interpretations but mark as `needs_decision`
-- Identify patterns in field naming (e.g., MODEL = `<count>CT <placement>`)
+-   Read `migration.yaml` for source location and CRS
+-   Read `context.md` for known terminology and overrides
+-   Use `tools/profile_cli.py` for compute-heavy operations (preferred over inline Python)
+-   Report ambiguities rather than guessing
+-   Be conservative with Include? flags — flag uncertain items for human review
+-   When value meaning is unclear, propose interpretations but mark as `needs_decision`
+-   Identify patterns in field naming (e.g., MODEL = `<count>CT <placement>`)
 
 ## Tool Usage
 

@@ -9,7 +9,7 @@
 # Populated during profile stage (<date>)
 
 issues:
-  - id: ""                    # Sequential ID, e.g. "DQR-001"
+  - id: ""                    # Sequential ID, e.g. "DQI-001"
     category: ""              # One of: coded_values | null_values | data_type |
                               #         coordinate_precision | connectivity |
                               #         duplicate_records | referential_integrity |
@@ -27,6 +27,9 @@ issues:
                               #         customer_fix_required
     target_area: ""           # Affected migration target area, e.g. "structure_type_split"
     dmdd_refs: []             # References to DMDD mapping entries affected
+    impact_if_unresolved: ""  # Impact to target system if not resolved,
+                              #  e.g. "orphaned records", "broken connectivity", "invalid attributes"
+    effort_to_resolve: ""     # One of: trivial | low | medium | high | very_high
     status: ""                # One of: open | in_progress | resolved | closed | deferred
     owner: ""                 # One of: customer | migration_engineer | vendor
 
@@ -34,7 +37,7 @@ issues:
 # Usage Notes
 # =============================================================================
 # - One issue entry per distinct data quality finding
-# - Populate id sequentially (DQR-001, DQR-002, ...)
+# - Populate id sequentially (DQI-001, DQI-002, ...)
 # - severity guides prioritisation:
 #     info     — observation only, no action needed
 #     low      — minor gap, acceptable workaround exists
@@ -53,3 +56,10 @@ issues:
 #     customer_fix_required — customer must fix in source before re-extract
 # - Update status as issues move through resolution
 # - Link to DMDD entries via dmdd_refs when treatment affects mapping
+# - impact_if_unresolved describes downstream consequences in the target system
+# - effort_to_resolve estimates resolution effort:
+#     trivial   — minutes; simple config or mapping tweak
+#     low       — hours; straightforward transformation or script
+#     medium    — day or two; custom logic or customer coordination
+#     high      — multiple days; complex rework or source re-extract
+#     very_high — week+; architectural change or major source remediation
