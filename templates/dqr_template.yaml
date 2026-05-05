@@ -13,7 +13,8 @@ issues:
     category: ""              # One of: coded_values | null_values | data_type |
                               #         coordinate_precision | connectivity |
                               #         duplicate_records | referential_integrity |
-                              #         domain_violation | geometry_error
+                              #         domain_violation | geometry_error |
+                              #         containment | topology | placement_inference
     source_object: ""         # Source layer/table name, e.g. "SUMMIT_POLEPED"
     source_attribute: ""      # Source attribute/column, e.g. "LOCATION"
     check: ""                 # Human-readable description of the quality issue
@@ -40,6 +41,10 @@ issues:
 #     medium   — requires decision but does not block migration
 #     high     — blocks mapping or loading for affected records
 #     critical — blocks entire migration stream
+# - category definitions:
+#     containment         — missing/broken housing relationships (no root_housing, orphan equipment)
+#     topology            — gaps in route/cable continuity (unsegmented cables, missing routes, broken chains)
+#     placement_inference — uncertain spatial proximity matches (multiple candidates, no candidates within radius)
 # - treatment captures the agreed resolution approach:
 #     accept_ignore         — known gap, accepted as-is
 #     fix_in_flight         — transformation applied during migration
