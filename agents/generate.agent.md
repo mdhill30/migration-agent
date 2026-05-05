@@ -43,7 +43,7 @@ Each phase depends on the previous — structures must exist before routes refer
 
 ## Outputs
 
-- `.def` files in `output/`
+- `.def` files in `output/defs/` (JSON format — see `.def` File Format below)
 - Value mapping configuration
 - Synthetic data generation scripts (dummy structures, internal segments, derived routes)
 - `myw_db` load scripts
@@ -92,6 +92,80 @@ Each phase depends on the previous — structures must exist before routes refer
 - Coax: `coax_cable`, `mywcom_coax_segment`, `mywcom_coax_connection`
 
 **NEVER** produce a single generic `structure.csv`, `equipment.csv`, or `route.csv` — these will fail at load time because no such feature types exist in the NMT schema.
+
+## .def File Format
+
+`.def` files are **JSON** (not INI, YAML, or any other format). They define the schema for a feature type in the database. `myw_db load` uses these to create/update tables.
+
+**Correct approach**: Copy the base `.def` from the target NMT database (`myw_db <db> dump <dir> features`) and add any custom fields needed for migration. Do NOT write `.def` files from scratch unless the feature type doesn't exist yet.
+
+### Structure of a .def file
+
+```json
+{
+   "datasource": "myworld",
+   "name": "pole",
+   "external_name": "Pole",
+   "title": "{display_name}: [name]",
+   "track_changes": true,
+   "versioned": true,
+   "geom_indexed": true,
+   "editable": {
+      "insert_from_gui": true,
+      "update_from_gui": true,
+      "delete_from_gui": true
+   },
+   "fields": [
+      {"name": "id", "type": "integer", "key": true, "generator": "sequence"},
+      {"name": "name", "type": "string(64)"},
+      {"name": "location", "type": "point", "mandatory": "true"},
+      {"name": "specification", "type": "foreign_key(pole_spec)"},
+      {"name": "owner", "type": "string(32)"},
+      {"name": "installation_date", "type": "date"},
+      {"name": "equipment", "type": "reference_set", "read_only": "true"},
+      {"name": "routes", "type": "reference_set", "value": "select(oh_route.in_structure,...)", "read_only": "true"}
+   ],
+   "groups": [...],
+   "searches": [...],
+   "queries": [...],
+   "filters": []
+}
+```
+
+### Key field types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `integer` | Integer (use with `"key": true, "generator": "sequence"` for PK) | id |
+| `string(N)` | Varchar of length N; `string()` = unlimited | name, owner |
+| `double` | Float | height, loss |
+| `boolean` | true/false | directed, forward |
+| `date` | Date (YYYY-MM-DD) | installation_date |
+| `timestamp` | Datetime | created_at |
+| `point` | Point geometry (EWKT in CSV) | location |
+| `linestring` | LineString geometry (EWKT in CSV) | path |
+| `reference` | Cross-type FK (integer ID; NMT resolves across feature types) | housing, in_structure |
+| `reference_set` | Computed reverse-lookup (read-only, never loaded) | equipment, routes |
+| `foreign_key(type)` | FK to specific feature type | specification → `pole_spec` |
+
+### Rules for .def generation
+
+1. **Always use JSON format** — `.def` files are loaded by `myw_db load <file>.def`
+2. **`id` field must be first**, with `"key": true` and `"generator": "sequence"`
+3. **Geometry field** (`point` or `linestring`) must have `"mandatory": "true"`
+4. **`reference_set` fields are read-only** — never include them in CSVs; they're computed by the platform
+5. **`reference` fields** use integer IDs in CSVs — NMT resolves cross-type (e.g., `in_structure` can point to any structure type)
+6. **`foreign_key(type)` fields** reference a specific table — value in CSV must be a valid ID in that table
+7. **Custom migration fields** (e.g., `external_ref`) must be added to the `.def` before loading data, or the data will be silently dropped
+8. **Do NOT invent field names** — check the base `.def` from the database; use exact NMT field names
+
+### Workflow
+
+1. Dump base definitions: `myw_db <db> dump <dir> features`
+2. Copy relevant `.def` files to `output/defs/`
+3. Add any custom fields needed (e.g., `external_ref`)
+4. Load definitions: `myw_db <db> load output/defs/<feature>.def`
+5. Then load data: `myw_db <db> load output/data/<feature>.csv`
 
 ## myw_db Load CLI Reference
 
