@@ -1,0 +1,50 @@
+# =============================================================================
+# DQR — Data Quality Review Template
+# =============================================================================
+# This YAML captures data quality issues discovered during profiling.
+# Agents populate this file during the profile stage; engineers update
+# treatment decisions and status as the migration progresses.
+
+# Header — fill in per job
+# Populated during profile stage (<date>)
+
+issues:
+  - id: ""                    # Sequential ID, e.g. "DQR-001"
+    category: ""              # One of: coded_values | null_values | data_type |
+                              #         coordinate_precision | connectivity |
+                              #         duplicate_records | referential_integrity |
+                              #         domain_violation | geometry_error
+    source_object: ""         # Source layer/table name, e.g. "SUMMIT_POLEPED"
+    source_attribute: ""      # Source attribute/column, e.g. "LOCATION"
+    check: ""                 # Human-readable description of the quality issue
+    affected_count: 0         # Number of records affected
+    affected_percent: 0       # Percentage of records affected (0-100)
+    examples: ""              # Representative sample values, e.g. "0, 1, 2, 3"
+    severity: ""              # One of: info | low | medium | high | critical
+    treatment: ""             # One of: accept_ignore | fix_in_flight |
+                              #         needs_decision | reject_records |
+                              #         customer_fix_required
+    target_area: ""           # Affected migration target area, e.g. "structure_type_split"
+    dmdd_refs: []             # References to DMDD mapping entries affected
+    status: ""                # One of: open | in_progress | resolved | closed | deferred
+    owner: ""                 # One of: customer | migration_engineer | vendor
+
+# =============================================================================
+# Usage Notes
+# =============================================================================
+# - One issue entry per distinct data quality finding
+# - Populate id sequentially (DQR-001, DQR-002, ...)
+# - severity guides prioritisation:
+#     info     — observation only, no action needed
+#     low      — minor gap, acceptable workaround exists
+#     medium   — requires decision but does not block migration
+#     high     — blocks mapping or loading for affected records
+#     critical — blocks entire migration stream
+# - treatment captures the agreed resolution approach:
+#     accept_ignore         — known gap, accepted as-is
+#     fix_in_flight         — transformation applied during migration
+#     needs_decision        — awaiting customer/engineer decision
+#     reject_records        — affected records excluded from migration
+#     customer_fix_required — customer must fix in source before re-extract
+# - Update status as issues move through resolution
+# - Link to DMDD entries via dmdd_refs when treatment affects mapping
