@@ -297,6 +297,91 @@ Structure
 
 ---
 
+### Non-Network Features
+
+These features support planning, field operations, and demand management. They are not part of the network topology but are commonly present in NMT deployments and may be included in migrations.
+
+#### Design
+- **Base**: No geometry (has polygon `boundary` for spatial extent)
+- **Attributes**:
+  - `name` — Design identifier (primary key)
+  - `details` — Description
+  - `status` — Enum (`design_state`): New, In Progress, Complete, etc.
+  - `user_group` — Owning team
+  - `boundary` — Polygon defining design area
+  - `created_at` / `create_user` — Auto-generated audit
+  - `updated_at` / `update_user` — Auto-generated audit
+- **Role**: Versioning container. All versioned network features reference a Design via `design_id`. Designs enable concurrent editing and change tracking across multiple users.
+- **Migration note**: `design_id` is set by the platform when objects are created in a design context. During bulk migration, objects are typically loaded without a design (live data).
+
+#### Address
+- **Base**: Point geometry
+- **Attributes**:
+  - `name` — Address label
+  - `street_number` / `street_name` — Street address components
+  - `city` — City
+  - `postcode` — Postal/zip code
+  - `building` — Reference to associated Building structure — `read_only`
+  - `service_status` — Enum (`service_status`): active, pending, etc.
+  - `serving_equipment` — Reference to serving ONT/splitter/tap (`reference(fiber_splitter,fiber_tap,fiber_ont)`)
+  - `serving_structure` — Reference to nearest network structure
+  - `circuits` — `select(ftth_circuit.address)` — FTTH circuits serving this address (calculated)
+  - `location` — GeoJSON Point
+- **Role**: Demand-side feature linking customers to the network. Connects to FTTH circuits and serving equipment.
+- **Migration note**: Often loaded from external address databases (national post office, customer records). The `building` FK is platform-managed based on spatial containment.
+
+#### Service Area
+- **Base**: Polygon geometry
+- **Attributes**:
+  - `name` — Area identifier (primary key)
+  - `boundary` — Polygon geometry
+- **Role**: Simple named boundary defining a service territory (e.g., exchange area, cabinet serving area)
+- **Migration note**: Typically imported from planning systems or GIS boundary datasets.
+
+#### Cabinet Area (Comsof module)
+- **Base**: Polygon geometry
+- **Attributes**:
+  - `boundary` — Polygon geometry
+  - `comsof_auto` — Boolean; true if imported from Comsof planning tool
+- **Role**: Defines the serving area for a cabinet. Used in FTTH planning to assign addresses to cabinets.
+- **Migration note**: Only present when Comsof integration is enabled.
+
+#### Hazard
+- **Base**: Point geometry
+- **Attributes**:
+  - `hazard_type` — Enum (`hazard_type`): e.g., overhead wires, traffic, confined space
+  - `description` — Free-text hazard details
+  - `photo_upload` — File attachment (field photo)
+  - `location` — GeoJSON Point
+  - `design_id` — Associated design
+- **Role**: Field-captured safety hazard near network infrastructure. Used during survey and construction.
+- **Migration note**: Rarely migrated from source systems; typically captured live in the field.
+
+#### Permit Area
+- **Base**: Polygon geometry
+- **Attributes**:
+  - `permit_type` — Enum (`permit_type`): road opening, wayleave, etc.
+  - `permit_id` — External permit reference number
+  - `valid_from` / `valid_to` — Date range for permit validity
+  - `issuing_authority` — Authority name
+  - `boundary` — Polygon geometry
+  - `design_id` — Associated design
+- **Role**: Regulatory permit zone with validity tracking. Links construction work to required permissions.
+- **Migration note**: May be migrated from project management or permitting systems.
+
+#### Under Construction
+- **Base**: Point geometry
+- **Attributes**:
+  - `type_of_work` — Enum (`construction_type`): e.g., trenching, aerial, splicing
+  - `start_date` / `end_date` — Construction period
+  - `notes` — Free-text description
+  - `location` — GeoJSON Point
+  - `design_id` — Associated design
+- **Role**: Marks active construction sites on the map for awareness and coordination.
+- **Migration note**: Operational feature; rarely migrated.
+
+---
+
 ## Containment Hierarchy
 
 The NMT model enforces a **strict containment hierarchy**:

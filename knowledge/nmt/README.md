@@ -174,6 +174,9 @@ See [AGENTS.md](../../AGENTS.md) for orchestrator workflow.
 | How do I query the NMT database? | [myw_db-tools.md](myw_db-tools.md#common-sql-queries-with-myw_db-run) |
 | How are cables segmented across structures? | [topology-rules.md](topology-rules.md) |
 | Which fields are calculated vs mapped? | [nmt-data-model.md](nmt-data-model.md#calculated-fields) |
+| What non-network features exist? | [nmt-data-model.md](nmt-data-model.md#non-network-features) |
+| What inside plant objects exist? | [nmt-data-model.md](nmt-data-model.md#inside-plant-building-internals) |
+| What circuit types are available? | [nmt-data-model.md](nmt-data-model.md#circuits-serviceslogical-paths) |
 
 ---
 
