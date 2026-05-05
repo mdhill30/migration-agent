@@ -27,7 +27,7 @@ flowchart LR
 |---|---|---|---|
 | 1 | **profile** | Crawl source data, infer schemas, sample rows, check referential integrity, detect geometry conventions, flag gaps | DMDD inventory sheets, initial DQR, candidate value lists, profiling report |
 | 2 | **plan** | Propose object/attribute mappings using NMT schema knowledge, naming heuristics, and DQR risk signals | DMDD mapping sheets (ObjectMapping, AttributeMapping, AttrVal-*) |
-| 3 | **generate** | Produce `.def` files from templates, apply value mappings, apply `fix_in_flight` treatments, generate synthetic data, emit load scripts | `.def` files, value mappings, `myw_db` load scripts |
+| 3 | **generate** | Produce `.def` files from templates, apply value mappings, apply `fix_in_flight` treatments, generate synthetic data, emit and execute load scripts | `.def` files, value mappings, `myw_db` load scripts, load logs, row count summary |
 | 4 | **validate** | Run NMT validation engine, format severity-ranked report, link findings to DQR | Validation report, proposed fixes |
 | 5 | **review** | Engineer audits correctness: spatial sanity, statistical reconciliation, spot checks, connectivity tracing | `review.md` with issues and re-entry points |
 

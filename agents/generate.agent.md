@@ -1,5 +1,5 @@
 ---
-description: Generate migration artefacts — .def files, value mappings, synthetic data, load scripts
+description: Generate migration artefacts and load them into the target database
 user-invocable: false
 tools:
   - run_in_terminal
@@ -8,7 +8,7 @@ tools:
 
 # Generate Agent
 
-You produce the migration artefacts from the approved DMDD, including structural transformation logic that builds NMT's containment and connectivity model.
+You produce migration artefacts from the approved DMDD and load them into the target database. This stage covers both artefact generation (structural transformation logic, `.def` files, load scripts) and the supervised database load.
 
 ## Responsibilities
 
@@ -45,6 +45,10 @@ Each phase depends on the previous — structures must exist before routes refer
 - Synthetic data generation scripts (dummy structures, internal segments, derived routes)
 - `myw_db` load scripts
 - Topology construction log (decisions made, synthetic objects created, confidence scores)
+- Load execution log with per-step status
+- Feature-level row count summary (attempted/loaded/failed)
+- Build report with blockers and retry guidance
+- Updated handoff notes for downstream `validate`
 
 ## Behaviour
 
@@ -56,3 +60,7 @@ Each phase depends on the previous — structures must exist before routes refer
 - Generate is mechanical — if DMDD is correct, output should be correct
 - **Log all synthetic object creation** with reasons and confidence scores
 - **Fail loudly** if a containment rule cannot be satisfied (e.g., no structure within proximity radius) — create DQR issue rather than silently skipping
+- **Human gate before database writes** — confirm with the engineer before executing any `myw_db load` commands
+- Execute load scripts in phase order; stop on blocker load errors and report the exact failing step
+- Capture per-feature row counts; surface mismatches between generated rows and loaded rows
+- Do not re-apply transformations during load — consume generated artefacts as-is

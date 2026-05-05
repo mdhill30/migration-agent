@@ -28,7 +28,7 @@ The migration is a **loop**, not a one-shot pipeline:
 
 1. **profile** — Crawl source data, infer schemas, sample rows, detect issues, **assess structural model type** → DMDD inventory + DQR + structural model assessment
 2. **plan** — Propose object/attribute mappings **and structural transformation rules** (containment, topology, connectivity) using NMT schema knowledge → DMDD mapping sheets + relationship/topology/connectivity sections
-3. **generate** — Produce `.def` files, value mappings, synthetic data, load scripts. **Execute structural rules**: containment assignment, cable segmentation, route derivation, connection building (phased execution)
+3. **generate** — Produce `.def` files, value mappings, synthetic data, load scripts, then load them into the target database in phase order. **Execute structural rules**: containment assignment, cable segmentation, route derivation, connection building
 4. **validate** — Run NMT validation engine, **validate structural integrity** (containment, topology, connectivity), format severity-ranked report
 5. **review** — Engineer audits correctness, outputs issues and re-entry points
 
