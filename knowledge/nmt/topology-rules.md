@@ -42,9 +42,13 @@ seg5.root_housing = Structure C (internal)
 - `prev_segment` / `next_segment` form a doubly-linked list
 - First segment: `prev_segment = NULL`
 - Last segment: `next_segment = NULL`
-- Alternating pattern: internal → route → internal → route → internal
-- Internal segments at start/end of cable are optional (depend on whether cable terminates or passes through)
-- Every route-segment must have an internal segment on each side (at the structures)
+- Two valid chain patterns:
+  - **Transit-only** (preferred for migration): `transit(route1) → transit(route2) → ...`
+  - **Alternating** (full model): `internal(struct) → transit(route) → internal(struct) → ...`
+- Internal segments are **optional** — they are only needed when:
+  - Equipment is mounted at a structure and connections terminate there
+  - Explicit cable slack or storage loops exist at a structure
+- For migration, **transit-only chains are preferred** unless the source data has splice/termination detail that requires internal segments
 
 ### Cable Direction (Forward Flag)
 
@@ -147,7 +151,7 @@ When source data provides cable geometry and structure point locations but no ex
 - ~27% of cables have no structure match (short drops, spur connections)
 - Average segments per cable: 1.2 (most cables span 1-2 routes)
 
-**Important**: This approach does NOT create internal segments at structures. It produces route-span segments only. Internal segments require a second pass or are omitted when the source model uses a simpler containment approach.
+**Important**: This approach produces transit-only segment chains (one segment per route span). Internal segments are NOT generated. This is the preferred approach for migration — internal segments should only be added in a later pass if the source data contains splice/termination records that require them.
 
 ## Validation Rules (Topology)
 
@@ -155,9 +159,9 @@ When source data provides cable geometry and structure point locations but no ex
 |------|----------|
 | Every route must reference existing start_structure and end_structure | Blocker |
 | Cable segment chain must be continuous (no NULL gaps in middle of chain) | Blocker |
-| Cable segments alternating between route-housing and structure-housing | High |
-| Internal segments must be housed in a structure that is start/end of adjacent route | High |
-| Route-segments must be housed in a route whose structures match adjacent internal segments | High |
+| Transit segments must be housed in a route whose in/out structures match segment in/out structures | Blocker |
+| Adjacent transit segments must share a common structure (seg1.out_structure == seg2.in_structure) | High |
+| Internal segments (if present) must be housed in a structure that is start/end of adjacent route | High |
 | Conduit start/end structures must match its route's start/end structures | Medium |
 | Continuous conduit chains must traverse connected routes | Medium |
 | No isolated structures (structures with no routes, unless explicitly allowed) | Low |

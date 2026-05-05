@@ -62,14 +62,13 @@ NMT requires an **explicit containment** model where:
 1. Identify all structures within snap tolerance of the cable line
 2. Order structures along the cable geometry (by linear referencing / distance along line)
 3. Split cable geometry at each structure point
-4. Create one route-spanning cable_segment per inter-structure span
-5. Create one internal cable_segment per structure crossing
-6. Link segments with `prev_segment` / `next_segment`
-7. Create routes between consecutive structures (if routes don't exist)
+4. Create one transit cable_segment per inter-structure route span
+5. Link segments with `prev_segment` / `next_segment` (transit-only chain)
+6. Create routes between consecutive structures (if routes don't exist)
 
 **Parameters**:
 - `snap_tolerance_m`: How close a structure must be to the cable to count as "on" it (default: 2m)
-- `create_internal_segments`: Whether to create internal segments at each structure (default: true)
+- `create_internal_segments`: Whether to create internal segments at each structure (default: **false** — transit-only chains are preferred for migration)
 - `create_routes`: Whether to synthesize routes if they don't exist (default: true)
 
 ### Pattern 4: Cables With Segment Table (Pre-Segmented)

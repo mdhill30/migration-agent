@@ -87,7 +87,11 @@ A cable segment housed within a single structure (not spanning a route) is calle
 - Risers (cable running between floors in a building)
 - Cable passing through a structure without termination
 
-Internal segments connect two route-spanning segments and ensure cable continuity through structures.
+Internal segments are **optional** in NMT. For migration projects, the preferred approach is to generate **transit-only segment chains** (one segment per route span, chained directly). Internal segments should only be added when the source data explicitly contains:
+- Splice/termination records at a structure requiring a segment endpoint
+- Measured cable slack or storage loops
+
+A transit-only chain still correctly models cable topology — the `in_structure`/`out_structure` fields on adjacent transit segments identify the shared structure between them.
 
 ## Validation Rules (Containment)
 
