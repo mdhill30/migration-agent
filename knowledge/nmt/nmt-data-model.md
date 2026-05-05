@@ -20,17 +20,39 @@ All NMT objects inherit from `Feature`, which provides:
 
 **Structures** are point-based physical locations where cables terminate or split.
 
+**CRITICAL**: NMT does NOT use a single generic `structure` table. Each structure type is its own **separate feature type** with its own database table, `.def` file, and CSV for loading. The `myw_db load` command infers the target feature type from the CSV filename.
+
+#### Concrete Structure Types
+
+| NMT Feature Type | External Name | Key Fields | Typical Source |
+|---|---|---|---|
+| `pole` | Pole | id, name, location, type, height, owner, specification, installation_date | Wooden/steel poles |
+| `cabinet` | Cabinet | id, name, location, specification, owner, installation_date | Street cabinets, FDHs |
+| `manhole` | Manhole | id, name, location, specification, size_x/y/z, installation_date | Underground chambers |
+| `wall_box` | Wall Box | id, name, location, specification, installation_date | Wall-mounted boxes |
+| `building` | Building | id, name, location, owner | Head-ends, COs, data centers |
+| `drop_point` | Drop Point | id, name, location, type, installation_date | Customer-facing DPs |
+
+Each structure type has:
+- `equipment` — reference_set of contained equipment (auto-populated)
+- `routes` — reference_set of routes starting/ending here (auto-populated via `select(oh_route.in_structure,oh_route.out_structure,ug_route.in_structure,ug_route.out_structure)`)
+- `in_fiber_segments` / `out_fiber_segments` — calculated segment sets
+- `cables` — calculated cable set via method
+
+**Generation rule**: When migrating, map each source structure record to the correct NMT feature type and produce a **separate CSV per type**. Do NOT consolidate into one file.
+
 #### Structure
 - **Base**: Point geometry
 - **Attributes**:
   - `name` — Structure identifier
-  - `specification` — Type reference (pole, pedestal, cabinet, etc.)
-  - `location` — GeoJSON Point geometry
-  - `laborCosts` — Installation cost estimate
+  - `specification` — Type reference (FK to `*_spec` table, e.g., `pole_spec`, `cabinet_spec`)
+  - `location` — Point geometry (EWKT: `SRID=4326;POINT(lon lat)`)
+  - `owner` — Owner string
+  - `installation_date` — Date installed
+  - `labor_costs` — Installation cost estimate
   - `in_fiber_segments` — Calculated reference set of incoming fiber segments
   - `out_fiber_segments` — Calculated reference set of outgoing fiber segments
 - **Containment role**: Top-level container for equipment and conduits
-- **Examples**: poles, pedestals, cabinets, buildings, cross-boxes
 
 **Directional semantics for calculated structure segment sets**:
 - `in_fiber_segments`: segments where `out_structure = this_structure` and `in_structure != this_structure`
@@ -40,15 +62,40 @@ All NMT objects inherit from `Feature`, which provides:
 
 #### Equipment
 - **Base**: Point feature inside a Structure (or nested in another Equipment)
+
+**CRITICAL**: Like structures, NMT uses **separate feature types per equipment category**. Each has its own `.def`, table, and CSV.
+
+#### Concrete Equipment Types
+
+| NMT Feature Type | External Name | Key Fields | Housing Model |
+|---|---|---|---|
+| `splice_closure` | Splice Closure | id, name, specification, root_housing, housing, location, loss | Contained in structure |
+| `fiber_splitter` | Fiber Splitter | id, name, specification, root_housing, housing, location, directed, n_fiber_in_ports, n_fiber_out_ports | Contained in structure |
+| `fiber_patch_panel` | Fiber Patch Panel | id, name, specification, root_housing, housing, location | Contained in structure/rack |
+| `fiber_ont` | Fiber ONT | id, name, specification, root_housing, housing, location | Customer premises |
+| `fiber_card` | Fiber Card | id, name, specification, root_housing, housing, location | In shelf/rack |
+| `fiber_shelf` | Fiber Shelf | id, name, specification, root_housing, housing, location | In rack |
+| `rack` | Rack | id, name, root_housing, housing, location | In room/structure |
+| `coax_amplifier` | Coax Amplifier | id, name, specification, root_housing, housing, location | In structure |
+| `coax_tap` | Coax Tap | id, name, specification, root_housing, housing, location | On pole/strand |
+
+**Common equipment attributes**:
+- `housing` — Direct parent reference (Structure, Rack, Room, or other Equipment)
+- `root_housing` — Top-level Structure reference (always a structure type)
+- `location` — Point geometry (EWKT)
+- `specification` — FK to the corresponding `*_spec` table
+- `fiber_connections` — reference_set via `select(mywcom_fiber_connection.housing)` (read-only)
+
+**Generation rule**: Map each source equipment record to the correct NMT feature type. Produce a **separate CSV per equipment type**. The `housing` and `root_housing` fields must reference the **integer ID** of the parent structure (myw_db resolves cross-type references by ID).
+
 - **Attributes**:
   - `name` — Equipment identifier
-  - `specification` — Equipment type (splitter, amplifier, patch panel)
-  - `housing` — Direct parent (Structure or Equipment URN)
-  - `rootHousing` — Top-level Structure URN
-  - `circuits` — QURN list of circuits passing through
-  - `location` — GeoJSON Point
+  - `specification` — Equipment type FK (e.g., `foreign_key(splice_closure_spec)`)
+  - `housing` — Direct parent (Structure or Equipment reference)
+  - `root_housing` — Top-level Structure reference
+  - `location` — Point geometry (EWKT)
 - **Containment role**: Can be nested; organizes connection points
-- **Examples**: patch panels, amplifiers, cross-connects, terminals
+- **Examples**: splice closures, fiber splitters, patch panels, ONTs
 
 ---
 
@@ -56,21 +103,29 @@ All NMT objects inherit from `Feature`, which provides:
 
 **Routes** represent the physical paths cables and conduits follow between structures.
 
+**CRITICAL**: NMT uses **separate feature types for route subtypes**:
+
+| NMT Feature Type | External Name | Key Fields |
+|---|---|---|
+| `ug_route` | Route (Underground) | id, path, in_structure, out_structure, length, cover_type |
+| `oh_route` | Route (Overhead) | id, path, in_structure, out_structure, length |
+
+**Generation rule**: Split source routes by construction method / laying type. Produce `ug_route.csv` and `oh_route.csv` separately. Underground routes have a `cover_type` enum field (values: `direct_buried`, `duct`, etc.).
+
 #### Route
 - **Base**: LineString geometry from start Structure to end Structure
 - **Attributes**:
-  - `inStructure` — Starting Structure URN
-  - `outStructure` — Ending Structure URN
+  - `in_structure` — Starting Structure reference (integer ID)
+  - `out_structure` — Ending Structure reference (integer ID)
   - `length` — Calculated or measured distance (meters)
-  - `path` — GeoJSON LineString geometry
-  - `laborCosts` — Installation/maintenance cost
-- **Containment role**: Parent for Conduits (direct children), Cables (via Routes)
+  - `path` — LineString geometry (EWKT: `SRID=4326;LINESTRING(...)`)
+  - `cover_type` — (ug_route only) Construction cover type enum
+  - `cable_segments` — reference_set via `select(mywcom_fiber_segment.housing,...)` (read-only)
+  - `cables` — Calculated cable set via method (read-only)
+- **Containment role**: Parent for Conduits (direct children), Cable Segments
 - **Examples**: underground conduit network between two poles, aerial cable run
 
-**Segment definition**: A Route contains ordered **Segments**, each representing:
-- A continuous span from pole-to-pole or junction-to-junction
-- A cable's path through that Route
-- Potential splice points with other cables
+**Note on structure references**: `in_structure` and `out_structure` are cross-type references. In the CSV, provide the integer ID of the target structure. NMT resolves the reference across all structure types (pole, cabinet, manhole, etc.) at load time.
 
 ---
 
@@ -103,31 +158,50 @@ All NMT objects inherit from `Feature`, which provides:
 
 **Cables** represent the actual transmission medium (fiber, copper, coax) carrying signals.
 
-#### Cable
-- **Base**: LineString path (may differ from physical route)
+**CRITICAL**: NMT uses technology-specific feature types:
+
+| NMT Feature Type | External Name | Technology |
+|---|---|---|
+| `fiber_cable` | Fiber Cable | Fiber optic |
+| `copper_cable` | Copper Cable | Copper twisted pair |
+| `coax_cable` | Coax Cable | Coaxial |
+
+#### Fiber Cable (`fiber_cable`)
+- **Base**: LineString path
 - **Attributes**:
   - `name` — Cable identifier (e.g., "MAIN-F001")
-  - `specification` — Cable type reference (fiber type, strand count, impedance)
-  - `technology` — Physical media: `fiber` | `copper` | `coax`
-  - `count` — Number of strands/pairs in cable
-  - `directed` — Boolean; true if distribution (directional flow)
-  - `path` — GeoJSON LineString
-  - `laborCosts` — Splicing/termination labor cost
-- **Geometry note**: Cable path is derived from traversing Segments; may not match Route exactly
-- **Examples**: "FIBER-MAIN-001" (single-mode fiber), "COPPER-LOOP-A" (twisted pair)
+  - `specification` — FK to `fiber_cable_spec`
+  - `type` — Cable type enum (`cable_type`)
+  - `fiber_count` — Number of fibers (integer)
+  - `directed` — Boolean; true if distribution (mandatory, default true)
+  - `path` — LineString geometry (EWKT, mandatory)
+  - `owner` — Owner string
+  - `installation_date` — Date installed
+  - `loss` — Fiber loss (dB/km)
+  - `cable_segments` — reference_set via `select(mywcom_fiber_segment.cable)` (read-only)
+- **Geometry note**: Cable path is derived from traversing Segments; typically matches route geometry
+- **Examples**: "FIBER-MAIN-001" (single-mode fiber, 48-count)
 
-#### Segment
-- **Base**: Cable's footprint in a single Route (or Conduit span)
+#### Fiber Segment (`mywcom_fiber_segment`)
+- **Base**: Cable's footprint in a single Route or Structure
 - **Attributes**:
-  - `cable` — Parent Cable URN
-  - `housing` — Immediate parent (Conduit or Route URN)
-  - `rootHousing` — Top-level Structure URN
-  - `directed` — Inherits from Cable
-  - `circuits` — QURN list of circuits using this segment
-- **Topology**: Ordered chain of Segments across Routes forms the complete Cable
-- **Splice points**: Connections between Segments represent cable junctions
+  - `cable` — Parent Cable reference (integer FK, mandatory)
+  - `housing` — Immediate parent (Route or Structure reference)
+  - `root_housing` — Top-level Route or Structure reference
+  - `directed` — Boolean (mandatory); inherits from Cable
+  - `forward` — Boolean (mandatory); segment direction relative to cable
+  - `in_structure` — Entry Structure reference (mandatory)
+  - `out_structure` — Exit Structure reference (mandatory)
+  - `in_segment` — Previous segment in chain (FK to `mywcom_fiber_segment`)
+  - `out_segment` — Next segment in chain (FK to `mywcom_fiber_segment`)
+  - `in_equipment` — Equipment at entry point (reference)
+  - `out_equipment` — Equipment at exit point (reference)
+  - `path` — LineString geometry (EWKT, mandatory)
+  - `fiber_connections` — reference_set via `select(mywcom_fiber_connection.in_object,mywcom_fiber_connection.out_object)` (read-only)
+- **Topology**: Ordered chain of Segments via `in_segment`/`out_segment` FKs forms the complete Cable path
+- **Internal segments**: Segments housed in structures (not routes) represent cable within structures; `in_structure == out_structure` for these
 
-**Key principle**: Cables are segmented across Routes for granular failure and capacity management.
+**Key principle**: Cables are segmented across Routes for granular failure and capacity management. The segment chain is: `internal_start → route_segment → internal_end` (minimum 3 segments per cable).
 
 ---
 
@@ -275,25 +349,33 @@ Structure
 
 **Connections** model explicit point-to-point relationships: splices, patch cords, port-to-port links.
 
-#### Connection
-- **Base**: Logical object; usually at a Structure or Equipment
+**CRITICAL**: NMT uses technology-specific connection types:
+
+| NMT Feature Type | External Name | Technology |
+|---|---|---|
+| `mywcom_fiber_connection` | Fiber Connection | Fiber |
+| `mywcom_copper_connection` | Copper Connection | Copper |
+| `mywcom_coax_connection` | Coax Connection | Coaxial |
+
+#### Fiber Connection (`mywcom_fiber_connection`)
+- **Base**: Point geometry at the connection location
 - **Attributes**:
-  - `inObject` — Source object URN (Segment, Equipment, Circuit, Structure)
-  - `inSide` — Source side/port name (e.g., "east", "north", "port_1")
-  - `inLow` / `inHigh` — Strand/port range (e.g., 1-12)
-  - `outObject` — Destination object URN
-  - `outSide` — Destination side/port name
-  - `outLow` / `outHigh` — Destination strand/port range
-  - `splice` — Boolean; true if connecting two Segments (cable splice)
-  - `housing` — Immediate location Structure/Equipment URN
-  - `rootHousing` — Top-level Structure URN
+  - `in_object` — Source segment reference (FK to `mywcom_fiber_segment`)
+  - `out_object` — Destination segment reference (FK to `mywcom_fiber_segment`)
+  - `in_side` — Source side string (e.g., "in", "out", "a", "z")
+  - `in_low` / `in_high` — Source strand/port range (integer, mandatory)
+  - `out_side` — Destination side string
+  - `out_low` / `out_high` — Destination strand/port range (integer, mandatory)
+  - `splice` — Boolean; true if connecting two segments (cable splice), false if equipment connection
+  - `housing` — Immediate location (Structure or Equipment reference)
+  - `root_housing` — Top-level Structure reference
+  - `location` — Point geometry (EWKT, mandatory)
 - **Semantics**:
-  - **Splice** (segment-to-segment): Cable continuity across junction
-  - **Patch** (equipment-to-equipment): Service connection via cord/fiber
-  - **Cross-connect**: Equipment port-to-port connectivity
+  - **Splice** (`splice=true`): Cable continuity across junction (segment-to-segment at structure)
+  - **Equipment connection** (`splice=false`): Connection through equipment (segment-to-segment with equipment as housing)
 - **Examples**:
-  - Splice: Segment A → Segment B at Structure X
-  - Patch: Equipment A (port 1-4) → Equipment B (port 1-4) via fiber patch cord
+  - Splice: Segment A fibers 1-12 → Segment B fibers 1-12 at manhole (housing=manhole)
+  - Splitter: Segment A fiber 1 → Segment B fiber 1 at splitter (housing=fiber_splitter)
 
 ---
 

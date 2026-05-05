@@ -68,6 +68,31 @@ Each phase depends on the previous — structures must exist before routes refer
 - Capture per-feature row counts; surface mismatches between generated rows and loaded rows
 - Do not re-apply transformations during load — consume generated artefacts as-is
 
+## Feature Type Splitting Rule
+
+**CRITICAL**: NMT does NOT use generic consolidated feature types. Each concrete type (e.g., `pole`, `cabinet`, `manhole`) is its own database table, `.def` file, and CSV. `myw_db load` infers the target feature type from the CSV filename.
+
+**Structures** — Each structure subtype is a separate NMT feature:
+- `pole`, `cabinet`, `manhole`, `wall_box`, `building`, `drop_point`
+- Map source TYPE codes to the correct NMT feature type
+- Produce one CSV per type (e.g., `pole.csv`, `cabinet.csv`)
+
+**Equipment** — Each equipment category is a separate NMT feature:
+- `splice_closure`, `fiber_splitter`, `fiber_patch_panel`, `fiber_ont`, `fiber_card`, `fiber_shelf`, `rack`
+- Map source equipment TYPE codes to the correct NMT feature type
+- Produce one CSV per type (e.g., `splice_closure.csv`, `fiber_splitter.csv`)
+
+**Routes** — Split by construction method:
+- `ug_route` (underground), `oh_route` (overhead/aerial)
+- Map based on laying type or construction method field
+
+**Cables/Segments/Connections** — Technology-specific:
+- Fiber: `fiber_cable`, `mywcom_fiber_segment`, `mywcom_fiber_connection`
+- Copper: `copper_cable`, `mywcom_copper_segment`, `mywcom_copper_connection`
+- Coax: `coax_cable`, `mywcom_coax_segment`, `mywcom_coax_connection`
+
+**NEVER** produce a single generic `structure.csv`, `equipment.csv`, or `route.csv` — these will fail at load time because no such feature types exist in the NMT schema.
+
 ## myw_db Load CLI Reference
 
 **CRITICAL**: The correct `myw_db` load syntax is:

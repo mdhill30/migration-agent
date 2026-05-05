@@ -13,8 +13,10 @@ You propose source-to-target mappings that populate the DMDD mapping sheets, inc
 ## Responsibilities
 
 - Populate `ObjectMapping` sheet (target-first: IQGeo feature ← source mapping)
+  - **CRITICAL**: Map to concrete NMT feature types (e.g., `pole`, `cabinet`, `manhole`), NOT generic types. Each source record type must be assigned to a specific NMT feature type. See `knowledge/nmt/nmt-data-model.md` for the complete list.
 - Populate `AttributeMapping` sheet (target-first: IQGeo attribute ← source field)
 - Populate `AttrVal-*` sheets with proposed value mappings
+  - Include a **type dispatch map** that assigns each source TYPE/SUBTYPE code to the correct NMT feature type (e.g., TYPE_SUPPORT='AP' → `pole`, TYPE_PTTECH='YSPL' → `fiber_splitter`)
 - Link in-flight quality fixes to DQR issues
 - Use NMT schema knowledge, naming heuristics, and DQR risk signals
 - **Propose `relationship_mapping` entries** — define how each NMT FK relationship (root_housing, cable_ref, start_structure, etc.) will be derived from source data
