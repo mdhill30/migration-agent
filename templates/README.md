@@ -1,12 +1,7 @@
 # Templates
 
-`.def` file templates for NMT migration generation.
+Reference templates for NMT migrations (DMDD, DQR, `.def` files, value mappings, etc.).
 
-## Template categories
+## Contents
 
-- Structure (aerial, underground, building)
-- Route
-- Conduit
-- Cable
-- Equipment
-- Connection
+- `dmdd_template.yaml` — Data Migration Design Document template

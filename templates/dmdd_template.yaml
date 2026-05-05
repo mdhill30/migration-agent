@@ -1,0 +1,115 @@
+# =============================================================================
+# DMDD — Data Migration Design Document Template (HH variant)
+# =============================================================================
+# This YAML is the machine-readable equivalent of a DMDD spreadsheet.
+# It is the source of truth for data migration mappings.
+# Agents read/write this file; humans may also edit the companion .xlsx.
+
+summary:
+  vendor: ""              # e.g. "IQGeo"
+  customer: ""            # e.g. "Acme Telecom"
+  date: ""                # ISO date, e.g. "2026-03-12"
+  instructions:
+    - "Summary and use instructions for this workbook."
+    - "The intention of this Workbook is to have Object, Attribute, and Value level mappings reviewed for the data migration project."
+  status_values:          # Allowed status values used in tracking columns
+    - Pending Review
+    - Pending Comment Resolution
+    - Remove
+    - Approved - Attribute
+    - Approved - Mapping
+
+# -----------------------------------------------------------------------------
+# Object Inventory — one entry per source object/feature class (populated by profile stage)
+# -----------------------------------------------------------------------------
+object_inventory:
+  - feature: ""           # Source feature class name, e.g. "RISER", "MANHOLE"
+    count: 0              # Row count in source data
+    include_in_mapping: "" # "Yes" | "No"
+
+# -----------------------------------------------------------------------------
+# Attribute Inventory — one entry per source attribute (populated by profile stage)
+# -----------------------------------------------------------------------------
+attribute_inventory:
+  - feature: ""           # Parent source feature class
+    attribute: ""         # Source attribute/column name
+    data_type: ""         # e.g. "fme_uint32", "varchar(255)", "geometry"
+    count_null: 0         # Number of NULL values
+    count_unique: 0       # Number of distinct values
+    include_in_mapping: "" # "Yes" | "No"
+
+# -----------------------------------------------------------------------------
+# Object Mapping — target-first: IQGeo feature ← source (populated by plan stage)
+# Each entry maps one IQGeo target feature to its source(s).
+# -----------------------------------------------------------------------------
+object_mapping:
+  - tracking:
+      update_person: ""       # Who last modified this row
+      update_date: ""         # ISO date
+      review_comments: ""
+      status: ""              # One of status_values above
+      jira_ticket: ""
+    iqgeo_features:
+      feature: ""             # IQGeo feature category, e.g. "Building", "Chamber", "Pole"
+      display_name: ""
+      internal_name: ""       # e.g. "building", "chamber", "pole"
+      editable: ""            # "Y" | "N"
+      layer: ""
+      specifications: ""      # e.g. "chamber_spec", "pole_spec"
+      feature_type: ""        # e.g. "structure", "route", "cable", "equipment"
+      function: ""
+      housing: ""
+      style: ""
+    source_mapping:
+      system: ""              # Source system name, e.g. "GCOM", "3GIS"
+      table_layer: ""         # Source table/layer name
+      transformations: ""     # Filter/transform expression, e.g. "type = building"
+      internal_name: ""       # Source internal ID pattern, e.g. "B$GC_BLDG"
+
+# -----------------------------------------------------------------------------
+# Attribute Mapping — target-first: IQGeo attribute ← source (populated by plan stage)
+# Each entry maps one IQGeo target attribute to its source field + transformation.
+# -----------------------------------------------------------------------------
+attribute_mapping:
+  - tracking:
+      update_person: ""
+      update_date: ""
+      review_comments: ""
+      status: ""              # One of status_values
+    iqgeo_internal:
+      iqgeo_version_tested: "" # e.g. "V13"
+      jira_ticket: ""
+    iqgeo_fields:
+      table: ""               # Target IQGeo table, e.g. "building", "pole"
+      table_type: ""          # "feature" | "spec" | "connection"
+      display_name: ""
+      internal_name: ""       # Target attribute internal name
+      data_type: ""           # e.g. "string(64)", "integer", "double"
+      default_value: ""
+      pick_list: ""           # Pick list name if applicable
+      visible: ""             # "Y" | "N"
+      other: ""               # Additional notes
+    source_mapping:
+      system: ""              # Source system name
+      table_layer: ""         # Source table
+      attribute: ""           # Source attribute name
+      transformations: ""     # e.g. "=source value", "LOOKUP(material)", "CONCAT(a,b)"
+      internal_name: ""
+      data_type: ""
+      length: ""
+      domain: ""              # Source domain/picklist name
+      sample_value: ""        # Example value from source
+
+# -----------------------------------------------------------------------------
+# Value Mapping sheets — one section per coded domain (source value → target value)
+# Add one attrval_<domain_name> key per domain that requires value translation.
+# Populated by profile (source side) and plan (target side).
+# -----------------------------------------------------------------------------
+# attrval_<domain_name>:
+#   source_attribute: ""    # Source attribute name, e.g. "Material"
+#   target_attribute: ""    # Target attribute name, e.g. "pipematerial"
+#   mappings:
+#     - source_value: ""    # e.g. "(B)"
+#       source_count: 0     # Count in source data
+#       target_value: ""    # e.g. "bare steel"
+#       target_description: "" # Human-readable label
