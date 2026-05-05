@@ -17,3 +17,6 @@ venv/
 
 # Generated outputs
 output/
+
+# Job data (large shapefiles, local profiling results)
+jobs/
