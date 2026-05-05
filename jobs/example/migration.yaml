@@ -1,0 +1,73 @@
+# =============================================================================
+# Migration Job Configuration
+# =============================================================================
+# Machine-readable job config for the NMT migration orchestrator.
+# Copy this file into a new job folder and fill in per-project values.
+
+job:
+  name: ""                       # Short slug, e.g. "acme-fttx"
+  customer: ""                   # Customer name
+  vendor: "IQGeo"
+  target_product: "NMT"
+  target_version: ""             # e.g. "V13"
+  created: ""                    # ISO date
+  updated: ""                    # ISO date
+  status: "draft"                # draft | in_progress | complete | on_hold
+
+# Source data configuration
+source:
+  system: ""                     # Source system name
+  format: ""                     # shapefile | geodatabase | csv | postgis | oracle
+  path: "./source/"              # Relative path to source data directory
+  crs: ""                        # Source CRS, e.g. "EPSG:2236"
+  encoding: "UTF-8"
+  extraction_date: ""            # ISO date of source extract
+  record_count_estimate: 0
+
+# Target configuration
+target:
+  database: ""                   # Target database name
+  schema: "nmt"
+  crs: "EPSG:4326"              # WGS84 (NMT standard)
+  coordinate_transform: true
+
+# Pipeline stage tracking
+stages:
+  profile:
+    status: "not_started"        # not_started | in_progress | complete
+    completed_date: ""
+    artefacts:
+      - "profile_report.md"
+      - "dmdd.yaml"
+      - "dqr.yaml"
+  plan:
+    status: "not_started"
+    completed_date: ""
+    artefacts:
+      - "dmdd.yaml"
+  generate:
+    status: "not_started"
+    started_date: ""
+    artefacts: []
+  validate:
+    status: "not_started"
+    artefacts: []
+  review:
+    status: "not_started"
+    artefacts: []
+
+# Structural model assessment (populated during profile)
+structural_model:
+  source_type: ""                # placement_based | explicit_containment | hybrid
+  containment_strategy: ""       # spatial_proximity | foreign_key | naming_convention
+  connectivity_available: false  # true if source has connection/splice records
+  topology_source: ""            # cable_geometry | explicit_routes | none
+  notes: ""
+
+# Output configuration
+output:
+  path: "./output/"
+  generate_def_files: true
+  generate_load_scripts: true
+  generate_value_maps: true
+  generate_synthetic_data: true

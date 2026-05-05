@@ -20,3 +20,4 @@ output/
 
 # Job data (large shapefiles, local profiling results)
 jobs/
+!jobs/example/

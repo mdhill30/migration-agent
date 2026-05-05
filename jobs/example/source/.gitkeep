@@ -1,0 +1,3 @@
+# Source Data
+# Place source data files (shapefiles, CSVs, geodatabases, etc.) in this directory.
+# The profile stage will crawl this folder to discover and analyse source layers.

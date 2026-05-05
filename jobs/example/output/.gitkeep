@@ -1,0 +1,3 @@
+# Output
+# Generated artefacts (.def files, value maps, load scripts, synthetic data)
+# are written to this directory by the generate stage.

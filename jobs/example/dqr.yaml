@@ -1,0 +1,30 @@
+# =============================================================================
+# DQR — Data Quality Review (Job Instance)
+# =============================================================================
+# Populated by the profile stage with data quality issues discovered in source.
+# Engineers update treatment/status as the migration progresses.
+# See templates/dqr_template.yaml for full field documentation.
+
+issues: []
+
+# Example entry (uncomment and fill when issues are discovered):
+#  - id: "DQI-001"
+#    category: ""              # coded_values | null_values | data_type | coordinate_precision |
+#                              # connectivity | duplicate_records | referential_integrity |
+#                              # domain_violation | geometry_error | containment | topology |
+#                              # placement_inference
+#    source_object: ""
+#    source_attribute: ""
+#    check: ""
+#    affected_count: 0
+#    affected_percent: 0
+#    examples: ""
+#    severity: ""              # info | low | medium | high | critical
+#    treatment: ""             # accept_ignore | fix_in_flight | needs_decision |
+#                              # reject_records | customer_fix_required
+#    target_area: ""
+#    dmdd_refs: []
+#    impact_if_unresolved: ""
+#    effort_to_resolve: ""     # trivial | low | medium | high | very_high
+#    status: ""                # open | in_progress | resolved | closed | deferred
+#    owner: ""                 # customer | migration_engineer | vendor

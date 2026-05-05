@@ -1,0 +1,80 @@
+# =============================================================================
+# DMDD — Data Migration Design Document (Job Instance)
+# =============================================================================
+# Copy of templates/dmdd_template.yaml populated per-job by the profile and
+# plan stages. See templates/dmdd_template.yaml for full field documentation.
+#
+# Workflow:
+#   1. Profile stage populates: object_inventory, attribute_inventory
+#   2. Plan stage populates: object_mapping, attribute_mapping, structural sections
+#   3. Generate stage consumes all sections to produce .def files and load scripts
+
+summary:
+  vendor: ""
+  customer: ""
+  date: ""
+  instructions:
+    - "Populated by the migration pipeline. See templates/dmdd_template.yaml for field reference."
+  status_values:
+    - Pending Review
+    - Pending Comment Resolution
+    - Remove
+    - Approved - Attribute
+    - Approved - Mapping
+
+# Populated by profile stage
+object_inventory: []
+
+# Populated by profile stage
+attribute_inventory: []
+
+# Populated by plan stage
+object_mapping: []
+
+# Populated by plan stage
+attribute_mapping: []
+
+# Populated by plan stage — structural transformation rules
+relationship_mapping: []
+containment_rules: []
+
+topology_construction:
+  route_derivation:
+    method: ""
+    source_layer: ""
+    start_structure_field: ""
+    end_structure_field: ""
+    deduplication: ""
+    parameters: ""
+  cable_segmentation:
+    method: ""
+    snap_tolerance_m: 0
+    create_internal_segments: true
+    ordering_field: ""
+    direction_field: ""
+    forward_flag_rule: ""
+    parameters: ""
+  conduit_assignment:
+    method: ""
+    source_fk_field: ""
+    continuous_chaining: false
+    parameters: ""
+  directionality:
+    default_cable_direction: ""
+    direction_source_field: ""
+    direction_value_map: ""
+    parameters: ""
+
+connectivity_mapping:
+  connection_derivation:
+    method: ""
+    source_table: ""
+    from_object_field: ""
+    from_port_field: ""
+    to_object_field: ""
+    to_port_field: ""
+  port_assignment:
+    method: ""
+    port_naming_template: ""
+    parameters: ""
+  equipment_function_rules: []
