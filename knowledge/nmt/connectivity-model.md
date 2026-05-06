@@ -243,6 +243,79 @@ Connection 3:
 
 ---
 
+### Pattern 6: Through-Splitter (Segment → Directed Equipment → Segment)
+
+**Scenario**: Source data has explicit fiber-to-fiber relationships (splice/pass-through records) that occur at a **directed equipment** like a fiber splitter. NMT requires the connection to pass *through* the equipment rather than being a direct segment↔segment splice.
+
+A directed equipment has:
+- `n_fiber_in_ports` (typically 1 for a 1:N splitter)
+- `n_fiber_out_ports` (e.g., 4, 8, 16 for the split output)
+- Sides: `"in"` and `"out"`
+
+**Source data** (e.g., GeoPackage FO_FIBRE_REL at a splitter PTTECH):
+```
+fibre_rel_id: 12345
+fibre1_id: 100  (cable A, strand 3)  → logical IN
+fibre2_id: 200  (cable B, strand 3)  → logical OUT
+pttech_id: 500  (fiber_splitter at structure X)
+type_rel: 1     (pass-through / non-splice)
+```
+
+**Target NMT structure** — TWO connections per source record:
+```
+Connection 1 (segment → splitter IN):
+  in_object: mywcom_fiber_segment/{seg_a_id}
+  in_side: "out"   (side of segment at the structure)
+  in_low: 3
+  in_high: 3
+  out_object: fiber_splitter/{splitter_id}
+  out_side: "in"
+  out_low: 3        (pin = strand number from source fibre)
+  out_high: 3
+  splice: false
+  housing: fiber_splitter/{splitter_id}
+  root_housing: {structure_urn}
+  location: SRID=...;POINT(...)
+
+Connection 2 (splitter OUT → segment):
+  in_object: fiber_splitter/{splitter_id}
+  in_side: "out"
+  in_low: 3        (pin = strand number from destination fibre)
+  in_high: 3
+  out_object: mywcom_fiber_segment/{seg_b_id}
+  out_side: "in"   (side of segment at the structure)
+  out_low: 3
+  out_high: 3
+  splice: false
+  housing: fiber_splitter/{splitter_id}
+  root_housing: {structure_urn}
+  location: SRID=...;POINT(...)
+```
+
+**Key rules**:
+- `splice = false` — this is an equipment connection, not a direct fiber splice
+- `housing = splitter URN` — the equipment itself is the housing
+- `root_housing = structure URN` — the structure containing the splitter
+- Pin numbers correspond to **strand/fibre numbers** from the source fibre records
+- Side assignment on segments follows the standard rule: if `out_structure = housing structure` → segment side = `"out"`; if `in_structure = housing structure` → segment side = `"in"`
+- Side on splitter is always `"in"` for the receiving end, `"out"` for the emitting end (directed equipment convention)
+- Heavy deduplication expected: the same strand pair at the same splitter only produces one connection pair regardless of how many source records reference it
+
+**Identification heuristic**: A PTTECH is a splitter when:
+- Its mapped NMT type is `fiber_splitter`
+- OR source spec/type field contains "splitter", "coupleur", "PLC", "FBT"
+- OR `n_fiber_out_ports > 1` on the equipment
+
+**Validation**:
+- Both connections reference the same splitter equipment ✓
+- Splitter exists in database with matching `n_fiber_in_ports`/`n_fiber_out_ports` ✓
+- Pin numbers ≤ equipment port counts ✓
+- Segment sides correctly reflect which end is at the structure ✓
+- `splice = false` for all equipment connections ✓
+- Each source fibre_rel produces exactly 2 connection records (after dedup) ✓
+
+---
+
 ### Pattern 5: Cable Continuity Splice (Derived from Segments)
 
 **Scenario**: Source data has no explicit splice records, but cable segmentation has been performed. Wherever the same cable has a segment arriving at a structure (out_structure=X) AND a segment departing (in_structure=X), a splice connection must exist to maintain cable continuity.

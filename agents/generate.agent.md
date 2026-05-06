@@ -47,6 +47,20 @@ Topology construction requires ordered execution:
    - If `segment.in_structure = housing` → side = `"in"` (the segment's IN end is here)
    - Do NOT confuse cable travel direction with side values — side refers to the segment's own endpoint label
 
+   **Through-splitter connections** (CRITICAL — Pattern 6 in connectivity-model.md):
+   When a source fibre relationship occurs at a **directed equipment** (fiber_splitter), do NOT create a segment↔segment splice. Instead create TWO connections:
+   1. `segment → splitter IN port`: in_object=segment, in_side=segment_side_at_structure, out_object=fiber_splitter/{id}, out_side="in", pins=strand_number
+   2. `splitter OUT port → segment`: in_object=fiber_splitter/{id}, in_side="out", out_object=segment, out_side=segment_side_at_structure, pins=strand_number
+   
+   Rules for splitter connections:
+   - `splice = false` (equipment connection, not a direct fiber splice)
+   - `housing = fiber_splitter/{id}` (the equipment itself is the housing)
+   - `root_housing = structure URN` (the structure containing the splitter)
+   - Pin numbers = source fibre strand numbers
+   - Identify splitters by checking if the source equipment/PTTECH maps to `fiber_splitter` NMT type
+   - Use synthetic IDs for splitter connections (separate ID range from splice connections)
+   - Heavy deduplication expected: same strand pair at same splitter → one connection pair only
+
    **Deduplication**: Source data may contain multiple fibre records per segment (one per tube/ribbon). When resolving source splice/connection records to NMT connections, deduplicate on `(in_object, in_side, in_low, out_object, out_side, out_low)` before writing. Multiple source records mapping to the same physical connection must produce only one output record.
 
 Each phase depends on the previous — structures must exist before routes reference them, routes before cable segments are housed in them, segments before connections reference them.
