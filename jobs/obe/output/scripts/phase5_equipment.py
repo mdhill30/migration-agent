@@ -6,18 +6,15 @@ Reads FO_PTTECH from FO.gpkg, splits into separate CSVs per NMT equipment type.
 Output:
   - output/data/drop_point.csv
   - output/data/splice_closure.csv
-  - output/data/fiber_splitter.csv
 
 Mapping from TYPE_PTTECH:
   DP, DCP, CCP, FCP, TERM, CLCO → drop_point
-  JUNC, SUPERJ, PASS, PASS_FTTPD, HFCJ → splice_closure
-  YSPL, YSPL_FTTPT, YSPL_FTTPD → fiber_splitter
-  POP → splice_closure (fallback)
+  JUNC, SUPERJ, PASS, PASS_FTTPD, HFCJ, POP → splice_closure
+  YSPL, YSPL_FTTPT, YSPL_FTTPD → splice_closure (pass-through points, NOT true optical splitters)
 
 NMT fields (from .def):
   drop_point: id, name, location, type, installation_date
   splice_closure: id, name, root_housing, housing, location, installation_date
-  fiber_splitter: id, name, root_housing, housing, location, directed, installation_date
 """
 import csv
 import os
@@ -39,21 +36,12 @@ EQUIPMENT_TYPE_MAP = {
     'PASS_FTTPD': 'splice_closure',
     'HFCJ': 'splice_closure',
     'POP': 'splice_closure',
-    'YSPL': 'fiber_splitter',
-    'YSPL_FTTPT': 'fiber_splitter',
-    'YSPL_FTTPD': 'fiber_splitter',
+    'YSPL': 'splice_closure',
+    'YSPL_FTTPT': 'splice_closure',
+    'YSPL_FTTPD': 'splice_closure',
 }
 
-# Splitter ratio (n_fiber_out_ports) by TYPE_PTTECH subtype
-# Derived from standard GPON conventions:
-#   YSPL_FTTPT = FTTP terminal splitter → 1:8
-#   YSPL_FTTPD = FTTP distribution splitter → 1:4
-#   YSPL = generic splitter → 1:8 (default)
-SPLITTER_OUT_PORTS = {
-    'YSPL': 8,
-    'YSPL_FTTPT': 8,
-    'YSPL_FTTPD': 4,
-}
+
 
 # Structure type mapping for URN generation
 STRUCTURE_TYPE_MAP = {
@@ -135,7 +123,6 @@ def main():
     HEADERS = {
         'drop_point': ['id', 'name', 'location', 'type', 'installation_date'],
         'splice_closure': ['id', 'name', 'root_housing', 'housing', 'location', 'installation_date'],
-        'fiber_splitter': ['id', 'name', 'n_fiber_in_ports', 'n_fiber_out_ports', 'root_housing', 'housing', 'location', 'directed', 'installation_date'],
     }
 
     files = {}
@@ -173,11 +160,6 @@ def main():
             # housing/root_housing reference the structure it's contained in
             writers[feat_type].writerow([
                 int(pt_id), name, support_urn, support_urn, location, install
-            ])
-        elif feat_type == 'fiber_splitter':
-            out_ports = SPLITTER_OUT_PORTS.get(type_pt, 8)
-            writers[feat_type].writerow([
-                int(pt_id), name, 1, out_ports, support_urn, support_urn, location, 'true', install
             ])
 
         counts[feat_type] += 1

@@ -289,7 +289,8 @@ def main():
                 prev_seg = seg_ids[seg_idx - 1] if seg_idx > 0 else ''
                 next_seg = seg_ids[seg_idx + 1] if seg_idx < num_segments - 1 else ''
 
-                # Segment path = the route geometry it traverses
+                # Segment path = the exact route geometry it traverses
+                # (NMT requires segment.path == route.path regardless of forward flag)
                 seg_path = route_geoms.get(route_id, '')
 
                 writer.writerow([
