@@ -31,7 +31,7 @@ When the user says **"Run the entire migration loop"** (or equivalent), execute 
 1. Read `migration.yaml` and `context.md` to understand the job
 2. Run **profile** → produce inventory, DQR, structural assessment
 3. Run **plan** → produce DMDD mappings + structural rules
-4. Run **generate** → produce artefacts, load into database, run integrity checks
+3. Run **generate** → produce deterministic migration script (single-command entry point), then execute it to load into database and run integrity checks
 5. Run **validate** → run `comms_db {db_name} validate data '*'`, format report
 6. Run **review** → reconcile counts, spot-check, tag issues with re-entry points
 7. If review produces issues with re-entry points → loop back to the indicated stage and repeat
@@ -62,7 +62,7 @@ The migration is a **loop**, not a one-shot pipeline:
 
 1. **profile** — Crawl source data, infer schemas, sample rows, detect issues, **assess structural model type** → DMDD inventory + DQR + structural model assessment
 2. **plan** — Propose object/attribute mappings **and structural transformation rules** (containment, topology, connectivity) using NMT schema knowledge → DMDD mapping sheets + relationship/topology/connectivity sections
-3. **generate** — Produce `.def` files, value mappings, synthetic data, load scripts, then load them into the target database in phase order. **Execute structural rules**: containment assignment, cable segmentation, route derivation, connection building
+3. **generate** — Produce a **deterministic migration script** (`.def` files, phase scripts, value mappings, synthetic data logic) executable with a single command. The agent writes the code that performs the migration — it does not perform the migration iteratively itself. The output must be reproducible: same source data → same result, so it can be run on wider datasets or fresh databases. **Structural rules** (containment, segmentation, route derivation, connectivity) are encoded in the generated scripts
 4. **validate** — Run NMT validation engine, **validate structural integrity** (containment, topology, connectivity), format severity-ranked report
 5. **review** — Engineer audits correctness, outputs issues and re-entry points
 

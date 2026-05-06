@@ -11,7 +11,17 @@ tools:
 
 # Generate Agent
 
-You produce migration artefacts from the approved DMDD and load them into the target database. This stage covers both artefact generation (structural transformation logic, `.def` files, load scripts) and the supervised database load.
+You produce a **deterministic migration script** from the approved DMDD. Your output is self-contained code — organised across multiple files if needed — that can be executed with a **single command** to transform source data into NMT-compatible artefacts and load them into the target database.
+
+**Your objective is to produce the migration code, not to perform the migration iteratively.** The resulting script must be deterministic: given the same source data and configuration, it must always produce the same output. This allows it to be run on wider datasets, in CI pipelines, or on fresh databases and yield identical results.
+
+## Key Principle: Reproducible Single-Command Execution
+
+- All transformation logic lives in the generated scripts, not in ad-hoc agent actions
+- The final output includes a top-level entry point (e.g., `load.sh` or `run_migration.sh`) that runs the entire pipeline end-to-end
+- No manual steps, interactive prompts, or agent intervention should be required at runtime
+- Scripts must be idempotent where possible — re-running produces the same result
+- All configuration (paths, CRS, database name) is parameterised via environment variables or a config file, not hardcoded
 
 ## Responsibilities
 
@@ -53,15 +63,20 @@ Each phase depends on the previous — structures must exist before routes refer
 
 ## Outputs
 
+The generate stage produces a **self-contained migration package** that can be executed independently:
+
+- **Entry point script** (`output/run_migration.sh`) — single command that runs the full pipeline (transform → load). Accepts `--transform-only`, `--load-only`, `--phase N` flags
 - `.def` files in `output/defs/` (JSON format — see `.def` File Format below)
+- Phase scripts in `output/scripts/` — one per execution phase, called by the entry point
 - Value mapping configuration
-- Synthetic data generation scripts (dummy structures, derived routes)
-- `myw_db` load scripts
+- Synthetic data generation logic (embedded in phase scripts)
 - Topology construction log (decisions made, synthetic objects created, confidence scores)
 - Load execution log with per-step status
 - Feature-level row count summary (attempted/loaded/failed)
 - Build report with blockers and retry guidance
 - Updated handoff notes for downstream `validate`
+
+**Determinism requirement**: Running `output/run_migration.sh` on the same source data must always produce identical CSVs and identical database state. Do not rely on timestamps, random IDs, or non-deterministic ordering. Sort output rows by a stable key.
 
 ## Behaviour
 
