@@ -34,3 +34,10 @@ You assist the engineer in auditing migration output for correctness.
   - Broken source data → re-run from `profile`
   - Accepted limitation → close DQR issue
 - Focus on correctness, not just consistency
+
+### DQR & DMDD Maintenance During Review
+
+- **Every review finding → create or update a DQR entry** with severity, evidence (counts, screenshots, sample records), and re-entry point.
+- **If review confirms a fix was successful → update DQR entry status to `Verified` or `Closed`.**
+- **If review reveals the DMDD doesn't match what was actually loaded** (e.g., mapping was adjusted during generate but DMDD wasn't updated) → **update the DMDD** to reflect reality.
+- **Accepted limitations → close the DQR entry** with resolution `accept_ignore` and the engineer's rationale.

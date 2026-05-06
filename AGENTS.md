@@ -32,6 +32,7 @@ The migration is a **loop**, not a one-shot pipeline:
 4. **validate** — Run NMT validation engine, **validate structural integrity** (containment, topology, connectivity), format severity-ranked report
 5. **review** — Engineer audits correctness, outputs issues and re-entry points
 
+
 ## Human Gates
 
 Pause for human review if you really need to get human guidance or expert knowledge on important open questions. Don't pause if you can take the decision yourself.
@@ -62,6 +63,20 @@ The DMDD captures this via four structural sections:
 - `connectivity_mapping` — connection record construction from source splice/patch data
 
 Reference knowledge: `knowledge/nmt/containment-model.md`, `knowledge/nmt/connectivity-model.md`, `knowledge/nmt/topology-rules.md`, `knowledge/nmt/placement-to-containment.md`
+
+## Living Documents — DQR & DMDD Maintenance
+
+The DQR and DMDD are **living documents** that every stage must keep in sync with reality. They are not write-once artefacts — they evolve as the migration progresses.
+
+**Rules for all agents:**
+
+1. **Discover an issue → create or update a DQR entry immediately.** Do not defer logging. Include evidence (counts, examples, error messages).
+2. **Fix or work around an issue → update the DQR entry status.** Move it through the lifecycle: New → Under Review → Agreed → Implemented → Verified → Closed. Record what was done and in which phase.
+3. **Deviate from the DMDD during generation → update the DMDD.** If an approved mapping proves wrong or incomplete at execution time, amend the mapping/rule and note the reason. The DMDD must always reflect the *actual* transformation applied.
+4. **Resolve a previously-flagged DQR issue → mark it closed** with the resolution (fixed in-flight, accepted, pushed back to customer).
+5. **Validate or review reveals a new problem → create a DQR entry** with severity, evidence, and a recommended re-entry point.
+
+This ensures that at any point in the migration, the DQR accurately reflects the current quality posture and the DMDD accurately reflects the current transformation logic.
 
 ## Dependency Tracking
 

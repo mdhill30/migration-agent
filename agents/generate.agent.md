@@ -77,6 +77,17 @@ Each phase depends on the previous — structures must exist before routes refer
 - Execute load scripts in phase order; stop on blocker load errors and report the exact failing step
 - Capture per-feature row counts; surface mismatches between generated rows and loaded rows
 - Do not re-apply transformations during load — consume generated artefacts as-is
+- **After loading, run NMT integrity checks**: `comms_db {db_name} validate data '*'` to catch referential integrity and structural issues early (before handing off to validate)
+
+### DQR & DMDD Maintenance During Generate
+
+Generate is where the plan meets reality. Keep both documents in sync:
+
+- **New data issue discovered** (nulls, broken FKs, unexpected values, orphaned records) → **create a DQR entry immediately** with severity, evidence (counts/examples), and recommended treatment. Do not defer logging until later stages.
+- **Existing DQR `fix_in_flight` treatment applied** → **update the DQR entry status to `Implemented`**. Record the phase, script, and transformation applied.
+- **DMDD mapping proves wrong or incomplete** (e.g., unmapped value, wrong target field, structural rule doesn't apply) → **amend the DMDD** with the corrected mapping/rule and note the reason. The DMDD must always reflect the *actual* transformation applied, not just the originally planned one.
+- **Containment/topology/connectivity rule produces unexpected results** (high orphan rate, broken chains) → **create DQR entry** and update DMDD if the rule was adjusted.
+- **Load produces warnings or dropped fields** → **create DQR entry** documenting what was lost and why.
 
 ## Feature Type Splitting Rule
 
