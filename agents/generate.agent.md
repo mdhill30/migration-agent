@@ -271,6 +271,7 @@ Segment transform scripts derive `mywcom_fiber_segment` records from cables + st
 - Split cable linestring at each matched structure point → one segment per span
 - Assign `housing = route` by looking up the route matching segment endpoints
 - Set `forward = True` if segment direction matches route (in→out)
+- **Set `path` = the EWKT geometry of the housing route** (segment inherits its route's linestring). A segment with NULL path will crash the trace engine
 - Output: CSV with columns `cable, housing, root_housing, directed, forward, in_structure, out_structure, in_segment, out_segment, length, path`
 
 **Expected results**: ~73% of cables produce segments; ~27% have no structure match (short drops). Typical ratio: 0.7–0.8 segments per cable.

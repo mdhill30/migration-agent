@@ -146,6 +146,8 @@ When source data provides cable geometry and structure point locations but no ex
 
 **Output fields**: `cable`, `housing`, `root_housing`, `directed`, `forward`, `in_structure`, `out_structure`, `in_segment`, `out_segment`, `length`, `path`
 
+**Segment path geometry**: Each transit segment's `path` MUST be populated with the EWKT linestring of its housing route. The trace engine reads `segment.path.coords[0]` to determine start/end coordinates — a NULL path causes `AttributeError: 'NoneType' object has no attribute 'coords'` at runtime. When generating segments, read the route geometry from the route CSV/table and copy it to the segment's `path` field.
+
 **Statistics** (typical fiber OSP migration):
 - ~73% of cables produce segments (multi-structure match)
 - ~27% of cables have no structure match (short drops, spur connections)
