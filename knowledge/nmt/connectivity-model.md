@@ -245,33 +245,43 @@ Connection 3:
 
 ### Pattern 6: Through-Splitter (Segment → Directed Equipment → Segment)
 
-**Scenario**: Source data has explicit fiber-to-fiber relationships (splice/pass-through records) that occur at a **directed equipment** like a fiber splitter. NMT requires the connection to pass *through* the equipment rather than being a direct segment↔segment splice.
+**Scenario**: Source data has explicit fiber-to-fiber relationships at a **true optical power splitter** (1:N). NMT requires the connection to pass *through* the equipment rather than being a direct segment↔segment splice.
 
-A directed equipment has:
+A directed equipment (fiber_splitter) has:
 - `n_fiber_in_ports` (typically 1 for a 1:N splitter)
 - `n_fiber_out_ports` (e.g., 4, 8, 16 for the split output)
 - Sides: `"in"` and `"out"`
 
-**Source data** (e.g., GeoPackage FO_FIBRE_REL at a splitter PTTECH):
-```
-fibre_rel_id: 12345
-fibre1_id: 100  (cable A, strand 3)  → logical IN
-fibre2_id: 200  (cable B, strand 3)  → logical OUT
-pttech_id: 500  (fiber_splitter at structure X)
-type_rel: 1     (pass-through / non-splice)
-```
+⚠️ **CRITICAL — Distinguishing True Splitters from Pass-Through Points**:
+
+Many source systems label fiber distribution/pass-through points as "splitters" when they are actually splice closures or distribution frames. A true optical splitter has a specific 1:N ratio where one input fiber is physically split into N output fibers.
+
+**Signs of a pass-through point (NOT a true splitter)**:
+- Same number of fibers IN as OUT (1:1 strand mapping)
+- Multiple cables passing through with strand-for-strand continuity
+- Source type labels like "pass-through", "distribution", "FTTPT"
+- No evidence of signal level change (same fiber count on both sides)
+
+**Signs of a true optical splitter**:
+- Asymmetric fiber count (1 IN fiber → N OUT fibers)
+- Source spec explicitly states split ratio (1:4, 1:8, 1:16, 1:32)
+- Different cable fiber counts on each side of the equipment
+
+**If it's a pass-through point**: Model as `splice_closure` with segment↔segment splice connections (Pattern 1/5). The connections are `splice=true` with `housing=splice_closure/{id}`.
+
+**If it's a true optical splitter**: Use the pattern below.
 
 **Target NMT structure** — TWO connections per source record:
 ```
 Connection 1 (segment → splitter IN):
   in_object: mywcom_fiber_segment/{seg_a_id}
   in_side: "out"   (side of segment at the structure)
-  in_low: 3
-  in_high: 3
+  in_low: 1        (always pin 1 for 1:N splitter IN)
+  in_high: 1
   out_object: fiber_splitter/{splitter_id}
   out_side: "in"
-  out_low: 3        (pin = strand number from source fibre)
-  out_high: 3
+  out_low: 1        (always pin 1 for 1:N splitter IN)
+  out_high: 1
   splice: false
   housing: fiber_splitter/{splitter_id}
   root_housing: {structure_urn}
@@ -280,12 +290,12 @@ Connection 1 (segment → splitter IN):
 Connection 2 (splitter OUT → segment):
   in_object: fiber_splitter/{splitter_id}
   in_side: "out"
-  in_low: 3        (pin = strand number from destination fibre)
-  in_high: 3
+  in_low: {output_port}   (1 to N, assigned sequentially per output fiber)
+  in_high: {output_port}
   out_object: mywcom_fiber_segment/{seg_b_id}
   out_side: "in"   (side of segment at the structure)
-  out_low: 3
-  out_high: 3
+  out_low: {output_port}
+  out_high: {output_port}
   splice: false
   housing: fiber_splitter/{splitter_id}
   root_housing: {structure_urn}
@@ -296,10 +306,11 @@ Connection 2 (splitter OUT → segment):
 - `splice = false` — this is an equipment connection, not a direct fiber splice
 - `housing = splitter URN` — the equipment itself is the housing
 - `root_housing = structure URN` — the structure containing the splitter
-- Pin numbers correspond to **strand/fibre numbers** from the source fibre records
+- **IN side pin**: Always 1 for a 1:N splitter (single input port). All fibers entering the splitter connect to pin 1
+- **OUT side pin**: Sequential port assignment 1 to N (each output fiber gets a unique output port). Pin must be ≤ `n_fiber_out_ports`
 - Side assignment on segments follows the standard rule: if `out_structure = housing structure` → segment side = `"out"`; if `in_structure = housing structure` → segment side = `"in"`
 - Side on splitter is always `"in"` for the receiving end, `"out"` for the emitting end (directed equipment convention)
-- Heavy deduplication expected: the same strand pair at the same splitter only produces one connection pair regardless of how many source records reference it
+- Pin values MUST NOT exceed the port count on that side (validation will fail otherwise)
 
 **Identification heuristic**: A PTTECH is a splitter when:
 - Its mapped NMT type is `fiber_splitter`

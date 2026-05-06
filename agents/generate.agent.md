@@ -47,19 +47,25 @@ Topology construction requires ordered execution:
    - If `segment.in_structure = housing` → side = `"in"` (the segment's IN end is here)
    - Do NOT confuse cable travel direction with side values — side refers to the segment's own endpoint label
 
-   **Through-splitter connections** (CRITICAL — Pattern 6 in connectivity-model.md):
-   When a source fibre relationship occurs at a **directed equipment** (fiber_splitter), do NOT create a segment↔segment splice. Instead create TWO connections:
-   1. `segment → splitter IN port`: in_object=segment, in_side=segment_side_at_structure, out_object=fiber_splitter/{id}, out_side="in", pins=strand_number
-   2. `splitter OUT port → segment`: in_object=fiber_splitter/{id}, in_side="out", out_object=segment, out_side=segment_side_at_structure, pins=strand_number
+   **Through-splitter connections** (Pattern 6 in connectivity-model.md):
+   When a source fibre relationship occurs at a **true optical power splitter** (confirmed 1:N split ratio, asymmetric fiber counts), do NOT create a segment↔segment splice. Instead create TWO connections:
+   1. `segment → splitter IN port`: in_object=segment, in_side=segment_side_at_structure, out_object=fiber_splitter/{id}, out_side="in", pin=1 (always 1 for single-input splitter)
+   2. `splitter OUT port → segment`: in_object=fiber_splitter/{id}, in_side="out", in_low=output_port_number (1-N), out_object=segment, out_side=segment_side_at_structure
    
    Rules for splitter connections:
    - `splice = false` (equipment connection, not a direct fiber splice)
    - `housing = fiber_splitter/{id}` (the equipment itself is the housing)
    - `root_housing = structure URN` (the structure containing the splitter)
-   - Pin numbers = source fibre strand numbers
-   - Identify splitters by checking if the source equipment/PTTECH maps to `fiber_splitter` NMT type
-   - Use synthetic IDs for splitter connections (separate ID range from splice connections)
-   - Heavy deduplication expected: same strand pair at same splitter → one connection pair only
+   - IN pin = always 1 for 1:N splitters; OUT pin = sequential 1 to N (must be ≤ n_fiber_out_ports)
+   - Identify splitters by checking if the source equipment is a TRUE optical power splitter (1:N ratio)
+
+   ⚠️ **CRITICAL — Pass-through vs True Splitter**:
+   Source systems often label fiber distribution/pass-through points as "splitters" when they are actually splice closures. Signs of a pass-through point (NOT a true splitter):
+   - Same fiber count on IN as OUT (1:1 strand mapping)
+   - Multiple cables passing through with strand-for-strand continuity
+   - No asymmetric fiber count (e.g., 24 strands in → 24 strands out)
+   
+   **If pass-through**: Model as `splice_closure`, use normal segment↔segment splice connections (splice=true, housing=splice_closure URN). Do NOT use fiber_splitter.
 
    **Deduplication**: Source data may contain multiple fibre records per segment (one per tube/ribbon). When resolving source splice/connection records to NMT connections, deduplicate on `(in_object, in_side, in_low, out_object, out_side, out_low)` before writing. Multiple source records mapping to the same physical connection must produce only one output record.
 
