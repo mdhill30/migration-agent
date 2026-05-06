@@ -286,8 +286,8 @@ def main():
                 in_struct_urn = structure_urns.get(seg_in_struct, f'cabinet/{seg_in_struct}')
                 out_struct_urn = structure_urns.get(seg_out_struct, f'cabinet/{seg_out_struct}')
 
-                prev_seg = f'mywcom_fiber_segment/{seg_ids[seg_idx - 1]}' if seg_idx > 0 else ''
-                next_seg = f'mywcom_fiber_segment/{seg_ids[seg_idx + 1]}' if seg_idx < num_segments - 1 else ''
+                prev_seg = seg_ids[seg_idx - 1] if seg_idx > 0 else ''
+                next_seg = seg_ids[seg_idx + 1] if seg_idx < num_segments - 1 else ''
 
                 # Segment path = the route geometry it traverses
                 seg_path = route_geoms.get(route_id, '')

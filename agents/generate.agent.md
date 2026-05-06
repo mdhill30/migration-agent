@@ -36,7 +36,7 @@ Topology construction requires ordered execution:
 2. **Phase 2 — Routes**: Load/derive routes between structures, set start/end_structure FKs
 3. **Phase 3 — Conduits**: Load conduits into routes (if applicable)
 4. **Phase 4 — Cables**: Load fiber_cable records with geometry
-5. **Phase 4b — Fiber Segments** (`mywcom_fiber_segment`): Generate transit-only segment chains. Each segment = one route span. Chain segments directly (transit→transit) without internal segments. Use route_index from phase 2 to determine which spans each cable traverses. Set `in_structure`/`out_structure` per span endpoints.
+5. **Phase 4b — Fiber Segments** (`mywcom_fiber_segment`): Generate transit-only segment chains. Each segment = one route span. Chain segments directly (transit→transit) without internal segments. Use route_index from phase 2 to determine which spans each cable traverses. Set `in_structure`/`out_structure` per span endpoints. Set `in_segment`/`out_segment` as **plain integer IDs** (not URNs) referencing adjacent segments in the chain.
 6. **Phase 5 — Equipment**: Load equipment (splice_closure, fiber_slack), assign root_housing via containment rules
 7. **Phase 6 — Reference**: Load non-network features (drop_point, building_footprint, general_polygon)
 8. **Phase 7 — Fiber Connections** (`mywcom_fiber_connection`): Build splice records from segment cable-continuity at structures. Requires segments to exist. Where same cable arrives and departs at a structure, create a splice connection. Housing = splice_closure if present, else structure.
