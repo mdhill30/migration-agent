@@ -34,11 +34,7 @@ The migration is a **loop**, not a one-shot pipeline:
 
 ## Human Gates
 
-Pause for human review:
-- After `profile` (before plan)
-- After `plan` (before generate)
-- Before any `fix_in_flight` transformations
-- Before database writes
+Pause for human review if you really need to get human guidance or expert knowledge on important open questions. Don't pause if you can take the decision yourself.
 
 ## Iteration Rules
 
