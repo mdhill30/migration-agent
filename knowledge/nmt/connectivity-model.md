@@ -693,3 +693,34 @@ When migrating connectivity:
 - Strand numbering in source may differ from NMT conventions → need strand renumbering rules
 - Equipment functions must be assigned based on source equipment type → map source type to NMT function
 - If source has no connection data, connections may need to be derived from circuit/service records or left empty
+
+---
+
+## Critical Derivation Rules
+
+### Splice Field Auto-Derivation
+
+**The NMT platform auto-derives the `splice` boolean field on connections.** The validator enforces this derivation and flags mismatches as `derived_value_mismatch`.
+
+**Rule**: `splice = true` if and only if **both** `in_object` and `out_object` are cable segments (`mywcom_fiber_segment`, `mywcom_copper_segment`, or `mywcom_coax_segment`).
+
+| in_object | out_object | splice |
+|-----------|-----------|--------|
+| segment | segment | **true** (always) |
+| segment | equipment | false |
+| equipment | segment | false |
+| equipment | equipment | false |
+
+**Common mistake**: Source data may classify connections at junction points as "patch" or "pass-through" (not splice), but if both endpoints are segments in NMT, the connection is a splice regardless of source classification. Always set `splice=true` for segment-to-segment connections.
+
+### Connection `location` Field (Required)
+
+**Every connection record MUST have a populated `location` field** containing the EWKT point geometry of the housing structure where the connection is located.
+
+```
+location: SRID=4326;POINT(lon lat)
+```
+
+If `location` is NULL or empty, the NMT validator will crash with a `NoneType` error on `geom_type` when checking geometry consistency. The `location` should be the same point geometry as the housing structure referenced in the `housing` field.
+
+**In transform scripts**: Look up the housing structure's point coordinates and write them as EWKT into the connection's `location` field.

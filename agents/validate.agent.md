@@ -59,13 +59,15 @@ comms_db {db_name} validate data '{category}'
 **CRITICAL — Do NOT rely on the `'*'` wildcard alone.** In practice, `'*'` may not iterate all categories or may produce misleading "0 errors" output without actually checking records. Instead, **run each category individually** and verify that record counts appear in the output:
 
 ```bash
-comms_db {db_name} validate data 'structures'
-comms_db {db_name} validate data 'routes'
-comms_db {db_name} validate data 'equipment'
-comms_db {db_name} validate data 'cables'
-comms_db {db_name} validate data 'segments'
-comms_db {db_name} validate data 'connections'
+comms_db {db_name} validate data 'structures' --verbosity 2
+comms_db {db_name} validate data 'routes' --verbosity 2
+comms_db {db_name} validate data 'equipment' --verbosity 2
+comms_db {db_name} validate data 'cables' --verbosity 2
+comms_db {db_name} validate data 'segments' --verbosity 2
+comms_db {db_name} validate data 'connections' --verbosity 2
 ```
+
+**CRITICAL — Always use `--verbosity 2` (minimum).** At verbosity 1, the tool only prints "Checking integrity" with no error detail and no counts — making it impossible to tell if errors exist. Verbosity 2 prints one line per error (`feature_type(id) error_type`). Verbosity 3+ adds field-level expected/actual values.
 
 - Confirm each category shows `N records checked` — if no count is shown, the check didn't actually run
 - Parse output into the severity-ranked report

@@ -54,11 +54,44 @@ Steps:
 
 ---
 
+## Route Endpoint Snapping (CRITICAL)
+
+Source systems almost always digitise route linestrings independently from structure points. This means the first/last vertex of a route's linestring does NOT exactly match the coordinate of the start/end structure — even when the difference is sub-meter.
+
+**NMT validates this**: The `geom_mismatch_at` error fires when a route's linestring endpoints don't coincide with the structure point geometry. This typically affects 30-60% of routes in real-world data.
+
+**Standard fix**: In the transform script, **snap route linestring endpoints to structure point coordinates** before CRS transformation:
+
+```python
+# Build structure point coordinate lookup (source CRS)
+support_coords = {}  # {structure_id: (x, y)}
+for row in structure_rows:
+    support_coords[row.id] = parse_point(row.geom)
+
+# When generating route geometry:
+coords = parse_linestring(route_geom)
+if start_structure_id in support_coords:
+    coords[0] = support_coords[start_structure_id]
+if end_structure_id in support_coords:
+    coords[-1] = support_coords[end_structure_id]
+path_ewkt = linestring_to_ewkt(coords)
+```
+
+**Also apply to segments**: Cable segments inherit route geometry. If the segment's in_structure/out_structure differ from the route's endpoints (e.g., cable starts at equipment inside a structure), snap segment endpoints to the correct structure coordinates too.
+
+---
+
 ## Docker Pitfalls
 
 - `myw_db run --sql "INSERT ..."` does NOT auto-commit — use `--commit` flag or use `psql` directly
 - File paths in commands must reference the container filesystem, not the host
 - Check container paths: `myw_db` is typically at `/opt/iqgeo/platform/Tools/myw_db`, `comms_db` at `/opt/iqgeo/platform/WebApps/myworldapp/modules/comms/tools/comms_db`
+- **Path discovery**: Do NOT hardcode tool paths. In generated load scripts, discover the actual path at runtime:
+  ```bash
+  MYW_DB=$(find /opt/iqgeo -name "myw_db" -type f 2>/dev/null | head -1)
+  COMMS_DB=$(find /opt/iqgeo -name "comms_db" -type f 2>/dev/null | head -1)
+  ```
+  Or define them as environment variables in the entry-point script that can be overridden.
 
 ---
 

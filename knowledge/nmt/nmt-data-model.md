@@ -6,6 +6,25 @@ The IQGeo Network Management Toolkit (NMT) is a modern telecommunications networ
 
 **Key principle**: Explicit containment hierarchy via Foreign Key relationships, not spatial proximity.
 
+## Database Table Naming Conventions
+
+NMT tables follow inconsistent naming — some feature types have a `mywcom_` prefix and some don't. This matters when querying the database directly via SQL or when the CSV filename must match the table name for `myw_db load`.
+
+| Category | Table Name | CSV Filename | Notes |
+|----------|-----------|-------------|-------|
+| **Structures** | `manhole`, `cabinet`, `building`, `wall_box`, `pole` | `manhole.csv` | No prefix |
+| **Routes** | `ug_route`, `oh_route` | `ug_route.csv` | No prefix |
+| **Internal Route** | `mywcom_internal_route` | `mywcom_internal_route.csv` | Has prefix |
+| **Cables** | `fiber_cable`, `copper_cable`, `coax_cable` | `fiber_cable.csv` | No prefix |
+| **Segments** | `mywcom_fiber_segment`, `mywcom_copper_segment`, `mywcom_coax_segment` | `mywcom_fiber_segment.csv` | Has prefix |
+| **Equipment** | `splice_closure`, `fiber_splitter`, `fiber_patch_panel`, `drop_point` | `splice_closure.csv` | No prefix |
+| **Connections** | `mywcom_fiber_connection`, `mywcom_copper_connection`, `mywcom_coax_connection` | `mywcom_fiber_connection.csv` | Has prefix |
+| **Conduits** | `mywcom_conduit` | `mywcom_conduit.csv` | Has prefix |
+
+**Rule of thumb**: Segments, connections, internal routes, and conduits have the `mywcom_` prefix. Structures, routes, cables, and equipment do not.
+
+**When querying via psql**: All tables live in the `data` schema — use `data.manhole`, `data.mywcom_fiber_segment`, etc.
+
 ## Reference Field Format (URN)
 
 **CRITICAL**: All `reference` fields in NMT use **URN format**: `feature_type/id`
