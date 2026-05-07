@@ -22,6 +22,15 @@ from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
 
+# Professional styling module
+sys.path.insert(0, str(Path(__file__).parent))
+from docx_styles import (
+    Colors, SEVERITY_COLORS, STATUS_COLORS,
+    create_styled_document, add_cover_page, add_header_footer,
+    add_styled_table, add_kv_table, add_section_divider,
+    add_callout_box, add_stat_block, add_severity_badge,
+)
+
 
 # =============================================================================
 # Helpers
@@ -444,17 +453,8 @@ def generate_dmdd_excel(job_dir: Path):
 # DQR → Word
 # =============================================================================
 
-SEVERITY_COLORS = {
-    "blocker": RGBColor(0xC0, 0x00, 0x00),
-    "high": RGBColor(0xE0, 0x60, 0x00),
-    "medium": RGBColor(0xBF, 0x8F, 0x00),
-    "low": RGBColor(0x2E, 0x74, 0xB5),
-    "info": RGBColor(0x70, 0x70, 0x70),
-}
-
-
 def generate_dqr_word(job_dir: Path):
-    """Generate DQR Word document from dqr.yaml."""
+    """Generate DQR Word document from dqr.yaml — professional enterprise format."""
     dqr_path = job_dir / "dqr.yaml"
     if not dqr_path.exists():
         print(f"ERROR: {dqr_path} not found")
@@ -476,140 +476,134 @@ def generate_dqr_word(job_dir: Path):
     vendor = summary.get("vendor") or migration.get("vendor", "IQGeo")
     date = summary.get("date") or migration.get("date", "")
 
-    doc = Document()
+    doc = create_styled_document()
 
-    # Default font
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(11)
+    # Cover page
+    add_cover_page(doc, "Data Quality Review", customer, vendor, date)
 
-    # Title page
-    doc.add_paragraph()
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run("Data Quality Review")
-    run.bold = True
-    run.font.size = Pt(28)
-    run.font.color.rgb = RGBColor(0x2E, 0x74, 0xB5)
+    # Header/footer (applied to all pages after cover)
+    add_header_footer(doc, "Data Quality Review", customer)
 
-    doc.add_paragraph()
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run(customer)
-    run.font.size = Pt(18)
-    run.font.color.rgb = RGBColor(0x59, 0x59, 0x59)
-
-    doc.add_paragraph()
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta.add_run(f"Prepared by: {vendor}").font.size = Pt(12)
-    meta2 = doc.add_paragraph()
-    meta2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta2.add_run(f"Date: {date}").font.size = Pt(12)
-
-    doc.add_page_break()
-
-    # Executive Summary
+    # --- Executive Summary ---
     doc.add_heading("Executive Summary", level=1)
+
     total = len(issues)
     open_count = sum(1 for i in issues if i.get("status", "open") == "open")
-    doc.add_paragraph(
+    resolved_count = sum(1 for i in issues if i.get("status") in ("resolved", "closed"))
+    critical_count = severity_counts.get("critical", 0) + severity_counts.get("blocker", 0)
+
+    # Stats block
+    add_stat_block(doc, [
+        ("Total Issues", str(total)),
+        ("Open", str(open_count)),
+        ("Resolved", str(resolved_count)),
+        ("Critical/Blocker", str(critical_count)),
+    ])
+
+    # Summary narrative
+    p = doc.add_paragraph()
+    run = p.add_run(
         f"This document presents the Data Quality Review findings for the {customer} "
-        f"data migration project. A total of {total} issues were identified, "
-        f"of which {open_count} remain open."
+        f"data migration project. A total of {total} issues were identified during "
+        f"source data profiling and validation."
     )
+    run.font.size = Pt(10.5)
 
-    # Summary table
+    if critical_count > 0:
+        add_callout_box(doc,
+            f"{critical_count} critical/blocker issue(s) require resolution before migration can proceed.",
+            style="danger")
+    elif open_count > 0:
+        add_callout_box(doc,
+            f"{open_count} issue(s) remain open and require attention.",
+            style="warning")
+    else:
+        add_callout_box(doc,
+            "All issues have been resolved or accepted.",
+            style="success")
+
+    add_section_divider(doc)
+
+    # --- Severity Summary ---
     doc.add_heading("Issue Summary by Severity", level=2)
-    table = doc.add_table(rows=1, cols=3)
-    table.style = "Light Grid Accent 1"
-    hdr = table.rows[0].cells
-    hdr[0].text = "Severity"
-    hdr[1].text = "Count"
-    hdr[2].text = "Open"
 
-    for sev in ["blocker", "high", "medium", "low", "info"]:
+    severity_rows = []
+    for sev in ["critical", "blocker", "high", "medium", "low", "info"]:
         count = severity_counts.get(sev, 0)
-        open_c = sum(1 for i in issues if i.get("severity") == sev and i.get("status", "open") == "open")
-        row = table.add_row().cells
-        row[0].text = sev.capitalize()
-        row[1].text = str(count)
-        row[2].text = str(open_c)
+        if count > 0:
+            open_c = sum(1 for i in issues if i.get("severity") == sev and i.get("status", "open") == "open")
+            severity_rows.append([sev.capitalize(), str(count), str(open_c)])
 
-    # Treatment summary
+    add_styled_table(doc,
+        headers=["Severity", "Count", "Open"],
+        rows=severity_rows,
+        col_widths=[5.0, 3.0, 3.0],
+        accent_col=0)
+
+    # --- Treatment Summary ---
     doc.add_heading("Issue Summary by Treatment", level=2)
+
     treatment_counts = {}
     for issue in issues:
         t = issue.get("treatment", "unknown")
         treatment_counts[t] = treatment_counts.get(t, 0) + 1
 
-    table = doc.add_table(rows=1, cols=2)
-    table.style = "Light Grid Accent 1"
-    hdr = table.rows[0].cells
-    hdr[0].text = "Treatment"
-    hdr[1].text = "Count"
-    for t, c in sorted(treatment_counts.items()):
-        row = table.add_row().cells
-        row[0].text = t.replace("_", " ").title()
-        row[1].text = str(c)
+    treatment_rows = [[t.replace("_", " ").title(), str(c)]
+                      for t, c in sorted(treatment_counts.items())]
+    add_styled_table(doc,
+        headers=["Treatment", "Count"],
+        rows=treatment_rows,
+        col_widths=[8.0, 3.0])
 
     doc.add_page_break()
 
-    # Issues Detail
+    # --- Issues Detail ---
     doc.add_heading("Issues Detail", level=1)
 
-    for issue in issues:
+    for idx, issue in enumerate(issues):
         issue_id = issue.get("id", "")
         check = issue.get("check", "")
         severity = issue.get("severity", "info")
+        status = issue.get("status", "open")
 
+        # Issue heading with severity badge
         heading = doc.add_heading(f"{issue_id} — {check}", level=2)
-        # Color the heading by severity
         for run in heading.runs:
             color = SEVERITY_COLORS.get(severity)
             if color:
                 run.font.color.rgb = color
+        add_severity_badge(heading, severity)
 
-        # Issue details table
-        table = doc.add_table(rows=0, cols=2)
-        table.style = "Light Grid Accent 1"
-
-        fields = [
+        # Issue detail table
+        detail_data = [
             ("Category", issue.get("category", "")),
             ("Source Object", issue.get("source_object", "")),
             ("Source Attribute", issue.get("source_attribute", "")),
             ("Severity", severity.capitalize()),
-            ("Affected Count", str(issue.get("affected_count", ""))),
-            ("Affected %", f"{issue.get('affected_percent', '')}%"),
+            ("Affected Count", str(issue.get("affected_count", "")) if issue.get("affected_count") else "—"),
+            ("Affected %", f"{issue.get('affected_percent', '')}%" if issue.get("affected_percent") else "—"),
             ("Examples", issue.get("examples", "")),
             ("Treatment", issue.get("treatment", "").replace("_", " ").title()),
-            ("Target Area", issue.get("target_area", "")),
-            ("Status", issue.get("status", "")),
+            ("Status", status.replace("_", " ").title()),
             ("Owner", issue.get("owner", "")),
         ]
+        # Filter out empty values
+        detail_data = [(k, v) for k, v in detail_data if v and v != "—" and v != "%"]
+        add_kv_table(doc, detail_data)
 
-        for label, value in fields:
-            row = table.add_row().cells
-            row[0].text = label
-            p = row[0].paragraphs[0]
-            p.runs[0].bold = True
-            row[1].text = str(value) if value else ""
-
-        # Impact
+        # Impact callout
         impact = issue.get("impact_if_unresolved", "")
         if impact:
-            p = doc.add_paragraph()
-            p.add_run("Impact if unresolved: ").bold = True
-            p.add_run(impact)
+            add_callout_box(doc, f"Impact if unresolved: {impact}", style="warning")
 
         # Resolution
         resolution = issue.get("resolution", "")
         if resolution:
-            p = doc.add_paragraph()
-            p.add_run("Resolution: ").bold = True
-            p.add_run(resolution)
+            add_callout_box(doc, f"Resolution: {resolution}", style="success")
 
-        doc.add_paragraph()  # spacer
+        # Divider between issues (except last)
+        if idx < len(issues) - 1:
+            add_section_divider(doc)
 
     # Save
     out_dir = ensure_output_dir(job_dir)
@@ -639,7 +633,7 @@ def _parse_markdown_table(lines: list) -> list:
 
 
 def generate_profile_word(job_dir: Path):
-    """Generate profile report Word document from profile_report.md."""
+    """Generate profile report Word document from profile_report.md — professional enterprise format."""
     report_path = job_dir / "profile_report.md"
     if not report_path.exists():
         print(f"ERROR: {report_path} not found")
@@ -653,49 +647,26 @@ def generate_profile_word(job_dir: Path):
     with open(report_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    doc = Document()
+    doc = create_styled_document()
 
-    # Default font
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(11)
+    # Cover page
+    add_cover_page(doc, "Source Data Profile Report", customer, vendor, date)
 
-    # Title page
-    doc.add_paragraph()
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run("Source Data Profile Report")
-    run.bold = True
-    run.font.size = Pt(28)
-    run.font.color.rgb = RGBColor(0x2E, 0x74, 0xB5)
-
-    doc.add_paragraph()
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run(customer)
-    run.font.size = Pt(18)
-    run.font.color.rgb = RGBColor(0x59, 0x59, 0x59)
-
-    doc.add_paragraph()
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta.add_run(f"Prepared by: {vendor}").font.size = Pt(12)
-    meta2 = doc.add_paragraph()
-    meta2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta2.add_run(f"Date: {date}").font.size = Pt(12)
-
-    doc.add_page_break()
+    # Header/footer
+    add_header_footer(doc, "Source Data Profile Report", customer)
 
     # Parse markdown and convert to Word
     lines = content.split("\n")
     i = 0
+    first_h1_seen = False
     while i < len(lines):
         line = lines[i]
 
         # Headings
         if line.startswith("# "):
-            # Skip the first H1 (it's the title, already on title page)
-            if i == 0 or (i > 0 and not any(l.startswith("# ") for l in lines[:i])):
+            # Skip the first H1 (it's the title, already on cover page)
+            if not first_h1_seen:
+                first_h1_seen = True
                 i += 1
                 continue
             doc.add_heading(line[2:].strip(), level=1)
@@ -710,33 +681,29 @@ def generate_profile_word(job_dir: Path):
             i += 1
             continue
 
-        # Horizontal rule
+        # Horizontal rule — render as section divider
         if line.strip() == "---":
+            add_section_divider(doc)
             i += 1
             continue
 
-        # Tables
+        # Tables — use styled tables
         if line.strip().startswith("|"):
             table_lines = []
             while i < len(lines) and lines[i].strip().startswith("|"):
                 table_lines.append(lines[i])
                 i += 1
             rows = _parse_markdown_table(table_lines)
-            if rows:
-                table = doc.add_table(rows=len(rows), cols=len(rows[0]))
-                table.style = "Light Grid Accent 1"
-                for r_idx, row_data in enumerate(rows):
-                    for c_idx, cell_val in enumerate(row_data):
-                        if c_idx < len(table.columns):
-                            table.cell(r_idx, c_idx).text = cell_val
-                            if r_idx == 0:
-                                p = table.cell(r_idx, c_idx).paragraphs[0]
-                                if p.runs:
-                                    p.runs[0].bold = True
-                doc.add_paragraph()  # spacer after table
+            if rows and len(rows) > 1:
+                headers = rows[0]
+                data_rows = rows[1:]
+                add_styled_table(doc, headers=headers, rows=data_rows)
+            elif rows:
+                # Single row — just headers
+                add_styled_table(doc, headers=rows[0], rows=[])
             continue
 
-        # Code blocks
+        # Code blocks — styled with background
         if line.strip().startswith("```"):
             i += 1
             code_lines = []
@@ -744,13 +711,21 @@ def generate_profile_word(job_dir: Path):
                 code_lines.append(lines[i])
                 i += 1
             i += 1  # skip closing ```
-            p = doc.add_paragraph()
-            run = p.add_run("\n".join(code_lines))
-            run.font.name = "Consolas"
-            run.font.size = Pt(9)
+            code_text = "\n".join(code_lines)
+            if code_text.strip():
+                add_callout_box(doc, code_text, style="info")
             continue
 
-        # Bold text, bullet points, regular paragraphs
+        # Numbered list items
+        numbered_match = re.match(r"^\d+\.\s+(.+)$", line.strip())
+        if numbered_match:
+            text = numbered_match.group(1)
+            p = doc.add_paragraph(style="List Bullet")
+            _add_formatted_text(p, text)
+            i += 1
+            continue
+
+        # Bullet points
         if line.strip().startswith("- ") or line.strip().startswith("* "):
             text = line.strip()[2:]
             p = doc.add_paragraph(style="List Bullet")
@@ -758,6 +733,14 @@ def generate_profile_word(job_dir: Path):
             i += 1
             continue
 
+        # Bold metadata lines (e.g. **Total features**: 1234)
+        if line.strip().startswith("**") and "**:" in line:
+            p = doc.add_paragraph()
+            _add_formatted_text(p, line.strip())
+            i += 1
+            continue
+
+        # Regular paragraphs
         if line.strip():
             p = doc.add_paragraph()
             _add_formatted_text(p, line.strip())
@@ -782,13 +765,15 @@ def _add_formatted_text(paragraph, text: str):
         if match.group(2):  # bold
             run = paragraph.add_run(match.group(2))
             run.bold = True
+            run.font.color.rgb = Colors.NAVY
         elif match.group(3):  # italic
             run = paragraph.add_run(match.group(3))
             run.italic = True
         elif match.group(4):  # code
             run = paragraph.add_run(match.group(4))
             run.font.name = "Consolas"
-            run.font.size = Pt(10)
+            run.font.size = Pt(9.5)
+            run.font.color.rgb = Colors.STEEL_BLUE
         elif match.group(5):  # plain text
             paragraph.add_run(match.group(5))
 
