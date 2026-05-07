@@ -12,6 +12,7 @@ agents:
   - agents/validate.agent.md
   - agents/review.agent.md
   - agents/data-quality.agent.md
+  - agents/docs.agent.md
 ---
 
 # NMT Migration Orchestrator
