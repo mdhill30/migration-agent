@@ -17,11 +17,9 @@ from pathlib import Path
 import yaml
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
 import re
 
 
@@ -51,17 +49,37 @@ def ensure_output_dir(job_dir: Path) -> Path:
 # DMDD → Excel
 # =============================================================================
 
-# Style constants
-HEADER_FONT = Font(name="Calibri", size=14, bold=True)
-SUBHEADER_FONT = Font(name="Calibri", size=11, bold=True)
+# Style constants matching DMDD_HH_v1.1.xlsx template exactly
 DATA_FONT = Font(name="Calibri", size=11)
-HEADER_FILL = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
-THIN_BORDER = Border(
-    left=Side(style="thin"),
-    right=Side(style="thin"),
+DATA_FONT_BLACK = Font(name="Calibri", size=11, color="FF000000")
+SECTION_HEADER_FONT = Font(name="Calibri", size=14, bold=True, color="FFFFFFFF")
+COL_HEADER_FONT = Font(name="Calibri", size=11, bold=True, color="FFFFFFFF")
+
+# Row 1 section header fill: dark grey (theme 1 tint 0.35 ≈ #595959)
+SECTION_FILL = PatternFill(start_color="FF595959", end_color="FF595959", fill_type="solid")
+# Row 2 column header fills per section
+TRACKING_HDR_FILL = PatternFill(start_color="FF808080", end_color="FF808080", fill_type="solid")  # theme 1 tint 0.5
+IQGEO_HDR_FILL = PatternFill(start_color="FF548235", end_color="FF548235", fill_type="solid")    # theme 9 tint -0.25 (dark green)
+SOURCE_HDR_FILL = PatternFill(start_color="FF4472C4", end_color="FF4472C4", fill_type="solid")   # theme 4 (blue)
+
+# Data row fills per section
+TRACKING_DATA_FILL = PatternFill(start_color="FFF2F2F2", end_color="FFF2F2F2", fill_type="solid")  # theme 0 tint -0.05 (light grey)
+IQGEO_DATA_FILL = PatternFill(start_color="FFE2EFDA", end_color="FFE2EFDA", fill_type="solid")     # theme 9 tint 0.8 (light green)
+SOURCE_DATA_FILL = PatternFill(start_color="FFD9E2F3", end_color="FFD9E2F3", fill_type="solid")    # theme 4 tint 0.8 (light blue)
+TRANSFORM_DATA_FILL = PatternFill(start_color="FFFCE4D6", end_color="FFFCE4D6", fill_type="solid") # theme 5 tint 0.8 (light orange)
+
+# Borders: thin top and bottom only (like the template)
+ROW_BORDER = Border(
     top=Side(style="thin"),
     bottom=Side(style="thin"),
 )
+
+# AttrVal sheet fills
+ATTRVAL_HEADER_FILL = PatternFill(start_color="FFA5A5A5", end_color="FFA5A5A5", fill_type="solid")
+ATTRVAL_LABEL_FILL = PatternFill(start_color="FFFFCC99", end_color="FFFFCC99", fill_type="solid")
+ATTRVAL_COLHDR_FILL = PatternFill(start_color="FFF2F2F2", end_color="FFF2F2F2", fill_type="solid")
+ATTRVAL_SRC_FILL = PatternFill(start_color="FFC6EFCE", end_color="FFC6EFCE", fill_type="solid")
+ATTRVAL_TGT_FILL = PatternFill(start_color="FFD9E2F3", end_color="FFD9E2F3", fill_type="solid")
 
 
 def _set_col_widths(ws, widths: dict):
@@ -69,25 +87,43 @@ def _set_col_widths(ws, widths: dict):
         ws.column_dimensions[col_letter].width = width
 
 
-def _write_header_row(ws, row: int, headers: list, start_col: int = 1):
-    for i, h in enumerate(headers, start=start_col):
+def _apply_mapping_section_header(ws, row, col, value, end_col):
+    """Write a merged section header (row 1) in mapping sheets."""
+    cell = ws.cell(row=row, column=col, value=value)
+    cell.font = SECTION_HEADER_FONT
+    cell.fill = SECTION_FILL
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+    cell.border = ROW_BORDER
+    # Merge and fill remaining cells
+    if end_col > col:
+        ws.merge_cells(start_row=row, start_column=col, end_row=row, end_column=end_col)
+    for c in range(col, end_col + 1):
+        ws.cell(row=row, column=c).fill = SECTION_FILL
+        ws.cell(row=row, column=c).border = ROW_BORDER
+
+
+def _apply_col_headers(ws, row, headers, fills):
+    """Write column header row (row 2) with per-section fills."""
+    for i, (h, fill) in enumerate(zip(headers, fills), start=1):
         cell = ws.cell(row=row, column=i, value=h)
-        cell.font = SUBHEADER_FONT
-        cell.fill = HEADER_FILL
-        cell.border = THIN_BORDER
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.font = COL_HEADER_FONT
+        cell.fill = fill
+        cell.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
+        cell.border = ROW_BORDER
 
 
-def _write_data_row(ws, row: int, values: list, start_col: int = 1):
-    for i, v in enumerate(values, start=start_col):
+def _apply_data_row(ws, row, values, fills):
+    """Write a data row with per-column section fills and borders."""
+    for i, (v, fill) in enumerate(zip(values, fills), start=1):
         cell = ws.cell(row=row, column=i, value=v)
-        cell.font = DATA_FONT
-        cell.border = THIN_BORDER
+        cell.font = DATA_FONT_BLACK
+        cell.fill = fill
+        cell.border = ROW_BORDER
         cell.alignment = Alignment(vertical="top", wrap_text=True)
 
 
 def generate_dmdd_excel(job_dir: Path):
-    """Generate DMDD Excel from dmdd.yaml."""
+    """Generate DMDD Excel from dmdd.yaml matching DMDD_HH_v1.1.xlsx template."""
     dmdd_path = job_dir / "dmdd.yaml"
     if not dmdd_path.exists():
         print(f"ERROR: {dmdd_path} not found")
@@ -99,76 +135,126 @@ def generate_dmdd_excel(job_dir: Path):
 
     wb = Workbook()
 
-    # --- Summary sheet ---
+    # =========================================================================
+    # Summary sheet — plain text, no borders, matches template layout
+    # =========================================================================
     ws = wb.active
     ws.title = "Summary"
-    ws.cell(row=1, column=1, value="Vendor").font = SUBHEADER_FONT
-    ws.cell(row=1, column=2, value=summary.get("vendor", "")).font = DATA_FONT
-    ws.cell(row=2, column=1, value="Customer").font = SUBHEADER_FONT
-    ws.cell(row=2, column=2, value=summary.get("customer", "")).font = DATA_FONT
-    ws.cell(row=3, column=1, value="Date").font = SUBHEADER_FONT
-    ws.cell(row=3, column=2, value=summary.get("date", "")).font = DATA_FONT
-    ws.cell(row=5, column=1, value="Instructions").font = SUBHEADER_FONT
-    for i, instr in enumerate(summary.get("instructions", []), start=6):
-        ws.cell(row=i, column=1, value=instr).font = DATA_FONT
+    _set_col_widths(ws, {"A": 13, "B": 60})
 
-    status_row = 6 + len(summary.get("instructions", []))  + 1
-    ws.cell(row=status_row, column=1, value="Status Values").font = SUBHEADER_FONT
-    for i, sv in enumerate(summary.get("status_values", []), start=status_row + 1):
-        ws.cell(row=i, column=1, value=sv).font = DATA_FONT
+    # Row 2: Vendor, Row 3: Author, Row 4: Date (values in col B)
+    ws.cell(row=2, column=2, value=summary.get("vendor", "")).font = DATA_FONT
+    ws.cell(row=3, column=2, value=summary.get("customer", "")).font = DATA_FONT
+    ws.cell(row=4, column=2, value=summary.get("date", "")).font = DATA_FONT
 
-    _set_col_widths(ws, {"A": 20, "B": 60})
+    # Row 6: Instructions title (bold)
+    ws.cell(row=6, column=2, value="Summary and use instructions for this workbook").font = Font(name="Calibri", size=11, bold=True)
 
-    # --- ObjectInventory sheet ---
+    # Instructions text
+    row = 7
+    for instr in summary.get("instructions", []):
+        ws.cell(row=row, column=2, value=instr).font = DATA_FONT
+        row += 1
+
+    # Sheet descriptions
+    row += 1
+    ws.cell(row=row, column=2, value="Below is an explanation of each sheet:").font = DATA_FONT
+    row += 1
+    ws.cell(row=row, column=2, value="Object Mapping Sheet").font = Font(name="Calibri", size=11, bold=True)
+    row += 1
+    ws.cell(row=row, column=2, value="The Object level (feature/table level) mapping is in the ObjectMapping sheet.").font = DATA_FONT
+    row += 1
+    ws.cell(row=row, column=2, value="Attribute Mapping Sheet").font = Font(name="Calibri", size=11, bold=True)
+    row += 1
+    ws.cell(row=row, column=2, value="The Attribute level (field/column level) mapping is in the AttributeMapping sheet.").font = DATA_FONT
+    row += 1
+    ws.cell(row=row, column=2, value="Value Mapping Sheets").font = Font(name="Calibri", size=11, bold=True)
+    row += 1
+    ws.cell(row=row, column=2, value="The Value level (domain/pick-list) mappings are in the AttrVal- sheets.").font = DATA_FONT
+
+    # Status values section
+    row += 3
+    ws.cell(row=row, column=2, value="Status Values").font = Font(name="Calibri", size=11, bold=True)
+    row += 1
+    for sv in summary.get("status_values", []):
+        ws.cell(row=row, column=2, value=sv).font = DATA_FONT
+        row += 1
+
+    # =========================================================================
+    # ObjectInventory — plain header row, no fill, no borders (like template)
+    # =========================================================================
     ws = wb.create_sheet("ObjectInventory")
-    headers = ["Feature", "Count", "Include in Mapping?", "Geometry", "Notes"]
-    _write_header_row(ws, 1, headers)
+    headers = ["Feature", "Count", "Include in Mapping?"]
+    for i, h in enumerate(headers, start=1):
+        ws.cell(row=1, column=i, value=h).font = DATA_FONT
     for i, obj in enumerate(dmdd.get("object_inventory", []), start=2):
-        _write_data_row(ws, i, [
-            obj.get("feature", ""),
-            obj.get("count", ""),
-            obj.get("include_in_mapping", ""),
-            obj.get("geometry", ""),
-            obj.get("notes", ""),
-        ])
-    _set_col_widths(ws, {"A": 35, "B": 12, "C": 20, "D": 15, "E": 60})
+        ws.cell(row=i, column=1, value=obj.get("feature", "")).font = DATA_FONT
+        ws.cell(row=i, column=2, value=obj.get("count", "")).font = DATA_FONT
+        ws.cell(row=i, column=3, value=obj.get("include_in_mapping", "")).font = DATA_FONT
+    _set_col_widths(ws, {"A": 51, "B": 21, "C": 19})
 
-    # --- AttributeInventory sheet ---
+    # =========================================================================
+    # AttributeInventory — plain header, auto-filter (like template)
+    # =========================================================================
     ws = wb.create_sheet("AttributeInventory")
-    headers = ["Feature", "Attribute", "Data Type", "Count NULL", "Count Unique", "Include In Mapping?"]
-    _write_header_row(ws, 1, headers)
-    for i, attr in enumerate(dmdd.get("attribute_inventory", []), start=2):
-        _write_data_row(ws, i, [
-            attr.get("feature", ""),
-            attr.get("attribute", ""),
-            attr.get("data_type", ""),
-            attr.get("count_null", ""),
-            attr.get("count_unique", ""),
-            attr.get("include_in_mapping", ""),
-        ])
-    _set_col_widths(ws, {"A": 25, "B": 25, "C": 18, "D": 12, "E": 14, "F": 20})
+    attr_hdrs = ["Feature", "Attribute", "Data Type", "Count NULL", "COUNT UNIQUE", "Include In Mapping?"]
+    for i, h in enumerate(attr_hdrs, start=1):
+        ws.cell(row=1, column=i, value=h).font = DATA_FONT
 
-    # --- ObjectMapping sheet ---
+    attr_inv = dmdd.get("attribute_inventory", [])
+    for i, attr in enumerate(attr_inv, start=2):
+        ws.cell(row=i, column=1, value=attr.get("feature", "")).font = DATA_FONT
+        ws.cell(row=i, column=2, value=attr.get("attribute", "")).font = DATA_FONT
+        ws.cell(row=i, column=3, value=attr.get("data_type", "")).font = DATA_FONT
+        ws.cell(row=i, column=4, value=attr.get("count_null", "")).font = DATA_FONT
+        ws.cell(row=i, column=5, value=attr.get("count_unique", "")).font = DATA_FONT
+        ws.cell(row=i, column=6, value=attr.get("include_in_mapping", "")).font = DATA_FONT
+
+    # Auto-filter on header row
+    last_row = max(2, len(attr_inv) + 1)
+    ws.auto_filter.ref = f"A1:F{last_row}"
+    _set_col_widths(ws, {"A": 21, "B": 13, "C": 13, "D": 11, "E": 15, "F": 19})
+
+    # =========================================================================
+    # ObjectMapping — merged section headers, coloured columns, borders
+    # =========================================================================
     ws = wb.create_sheet("ObjectMapping")
-    # Section headers (row 1)
-    ws.cell(row=1, column=1, value="Tracking").font = HEADER_FONT
-    ws.cell(row=1, column=6, value="IQGeo Features").font = HEADER_FONT
-    ws.cell(row=1, column=16, value="Source Mapping").font = HEADER_FONT
 
-    # Column headers (row 2)
+    # Row 1: merged section headers
+    _apply_mapping_section_header(ws, 1, 1, "Tracking", 5)       # A1:E1
+    _apply_mapping_section_header(ws, 1, 6, "IQGeo Features", 15)  # F1:O1
+    _apply_mapping_section_header(ws, 1, 16, "Source Mapping", 19) # P1:S1
+
+    # Row 2: column headers with per-section fills
     obj_map_headers = [
-        "Update Person", "Update Date", "Review Comments", "Status", "Jira Ticket",  # A-E (Tracking)
-        "Feature", "Display Name", "Internal Name", "Editable", "Layer",             # F-J (IQGeo)
-        "Specifications", "Feature Type", "Function", "Housing", "Style",            # K-O (IQGeo cont.)
-        "System", "Table/Layer", "Transformations", "Internal Name",                 # P-S (Source)
+        "Update Person", "Update Date", "Review Comments", "Status", "Jira Ticket",
+        "Feature", "Display Name", "Internal Name", "Editable", "Layer",
+        "Specifications", "Feature Type", "Function", "Housing", "Style",
+        "System", "Table/Layer", "Transformations", "Internal Name",
     ]
-    _write_header_row(ws, 2, obj_map_headers)
+    # Map each column to its section fill
+    obj_hdr_fills = (
+        [TRACKING_HDR_FILL] * 5 +
+        [IQGEO_HDR_FILL] * 10 +
+        [SOURCE_HDR_FILL] * 4
+    )
+    _apply_col_headers(ws, 2, obj_map_headers, obj_hdr_fills)
+
+    # Data row fill pattern
+    obj_data_fills = (
+        [TRACKING_DATA_FILL] * 5 +
+        [IQGEO_DATA_FILL] * 10 +
+        [SOURCE_DATA_FILL] * 4
+    )
+
+    # Auto-filter on row 2
+    ws.auto_filter.ref = "A2:S2"
 
     for i, mapping in enumerate(dmdd.get("object_mapping", []), start=3):
         tracking = mapping.get("tracking", {})
         iqgeo = mapping.get("iqgeo_features", {})
         source = mapping.get("source_mapping", {})
-        _write_data_row(ws, i, [
+        values = [
             tracking.get("update_person", ""),
             tracking.get("update_date", ""),
             tracking.get("review_comments", ""),
@@ -188,37 +274,64 @@ def generate_dmdd_excel(job_dir: Path):
             source.get("table_layer", ""),
             source.get("transformations", ""),
             source.get("internal_name", ""),
-        ])
+        ]
+        _apply_data_row(ws, i, values, obj_data_fills)
+        # Source "System" column centered
+        ws.cell(row=i, column=16).alignment = Alignment(horizontal="center", vertical="top")
+
     _set_col_widths(ws, {
-        "A": 14, "B": 12, "C": 25, "D": 22, "E": 12,
-        "F": 22, "G": 22, "H": 22, "I": 10, "J": 12,
-        "K": 18, "L": 14, "M": 14, "N": 14, "O": 12,
-        "P": 14, "Q": 30, "R": 35, "S": 20,
+        "A": 24, "B": 22, "C": 32, "D": 33, "E": 13,
+        "F": 28, "G": 28, "H": 28, "I": 13, "J": 10,
+        "K": 18, "L": 19, "M": 17, "N": 13, "O": 14,
+        "P": 15, "Q": 28, "R": 26, "S": 25,
     })
 
-    # --- AttributeMapping sheet ---
+    # =========================================================================
+    # AttributeMapping — same pattern, 4 merged sections
+    # =========================================================================
     ws = wb.create_sheet("AttributeMapping")
-    ws.cell(row=1, column=1, value="Tracking").font = HEADER_FONT
-    ws.cell(row=1, column=5, value="IQGeo Internal").font = HEADER_FONT
-    ws.cell(row=1, column=7, value="IQGeo Fields").font = HEADER_FONT
-    ws.cell(row=1, column=16, value="Source Mapping").font = HEADER_FONT
+
+    # Row 1: merged section headers
+    _apply_mapping_section_header(ws, 1, 1, "Tracking", 4)         # A1:D1
+    _apply_mapping_section_header(ws, 1, 5, "IQGeo Internal", 6)   # E1:F1
+    _apply_mapping_section_header(ws, 1, 7, "IQGeo Fields", 15)    # G1:O1
+    _apply_mapping_section_header(ws, 1, 16, "Source Mapping", 24) # P1:X1
 
     attr_map_headers = [
-        "Update Person", "Update Date", "Review Comments", "Status",              # A-D
-        "IQGeo Version", "Jira Ticket",                                           # E-F
-        "Table", "Table Type", "Display Name", "Internal Name", "Data Type",      # G-K
-        "Default Value", "Pick List", "Visible", "Other",                         # L-O
-        "System", "Table/Layer", "Attribute", "Transformations",                  # P-S
-        "Internal Name", "Data Type", "Length", "Domain", "Sample Value",         # T-X
+        "Update Person", "Update Date", "Review Comments", "Status",
+        "IQGeo Version Tested", "Jira Ticket",
+        "Table", "Table Type", "Display Name", "Internal Name", "Data Type",
+        "Default Value", "Pick List", "Visible", "Other",
+        "System", "Table/Layer", "Attribute", "Transformations",
+        "Internal Name", "Data Type", "Length", "Domain", "Sample Value",
     ]
-    _write_header_row(ws, 2, attr_map_headers)
+    attr_hdr_fills = (
+        [TRACKING_HDR_FILL] * 4 +
+        [TRACKING_HDR_FILL] * 2 +  # IQGeo Internal uses same grey
+        [IQGEO_HDR_FILL] * 9 +
+        [SOURCE_HDR_FILL] * 9
+    )
+    _apply_col_headers(ws, 2, attr_map_headers, attr_hdr_fills)
 
-    for i, mapping in enumerate(dmdd.get("attribute_mapping", []), start=3):
+    # Data row fills
+    attr_data_fills = (
+        [TRACKING_DATA_FILL] * 4 +
+        [TRACKING_DATA_FILL] * 2 +
+        [IQGEO_DATA_FILL] * 9 +
+        [SOURCE_DATA_FILL] * 9
+    )
+
+    # Auto-filter
+    attr_mappings = dmdd.get("attribute_mapping", [])
+    last_data_row = max(2, len(attr_mappings) + 2)
+    ws.auto_filter.ref = f"A2:X{last_data_row}"
+
+    for i, mapping in enumerate(attr_mappings, start=3):
         tracking = mapping.get("tracking", {})
         iqgeo_int = mapping.get("iqgeo_internal", {})
         iqgeo_f = mapping.get("iqgeo_fields", {})
         source = mapping.get("source_mapping", {})
-        _write_data_row(ws, i, [
+        values = [
             tracking.get("update_person", ""),
             tracking.get("update_date", ""),
             tracking.get("review_comments", ""),
@@ -243,44 +356,81 @@ def generate_dmdd_excel(job_dir: Path):
             source.get("length", ""),
             source.get("domain", ""),
             source.get("sample_value", ""),
-        ])
+        ]
+        _apply_data_row(ws, i, values, attr_data_fills)
+        # Source "System" column centered
+        ws.cell(row=i, column=16).alignment = Alignment(horizontal="center", vertical="top")
+
     _set_col_widths(ws, {
-        "A": 14, "B": 12, "C": 25, "D": 22,
-        "E": 14, "F": 12,
-        "G": 18, "H": 12, "I": 20, "J": 20, "K": 16,
-        "L": 14, "M": 14, "N": 10, "O": 20,
-        "P": 14, "Q": 20, "R": 20, "S": 30,
-        "T": 18, "U": 14, "V": 8, "W": 16, "X": 20,
+        "A": 24, "B": 22, "C": 32, "D": 33,
+        "E": 15, "F": 18,
+        "G": 28, "H": 28, "I": 28, "J": 13, "K": 10,
+        "L": 18, "M": 17, "N": 17, "O": 27,
+        "P": 15, "Q": 28, "R": 26, "S": 57,
+        "T": 30, "U": 13, "V": 10, "W": 18, "X": 27,
     })
 
-    # --- Value mapping sheets (AttrVal-*) ---
+    # =========================================================================
+    # Value mapping sheets (AttrVal-*) — green source, blue target
+    # =========================================================================
     for key, val in dmdd.items():
         if key.startswith("value_mapping_"):
             domain_name = key.replace("value_mapping_", "")
-            sheet_name = f"AttrVal-{domain_name}"[:31]  # Excel 31-char limit
+            sheet_name = f"AttrVal-{domain_name}"[:31]
             ws = wb.create_sheet(sheet_name)
 
-            ws.cell(row=1, column=2, value="Source System").font = SUBHEADER_FONT
-            ws.cell(row=1, column=4, value="Target System").font = SUBHEADER_FONT
+            # Row 3: Section labels
+            bold_font = Font(name="Calibri", size=11, bold=True)
+            c = ws.cell(row=3, column=2, value="Source System")
+            c.font = bold_font
+            c.fill = ATTRVAL_HEADER_FILL
+            c = ws.cell(row=3, column=3, value=summary.get("customer", ""))
+            c.font = DATA_FONT
+            c.fill = ATTRVAL_LABEL_FILL
+            c = ws.cell(row=3, column=5, value="Target System")
+            c.font = bold_font
+            c.fill = ATTRVAL_HEADER_FILL
+            c = ws.cell(row=3, column=6, value="IQGeo NMT")
+            c.font = DATA_FONT
+            c.fill = ATTRVAL_LABEL_FILL
 
-            ws.cell(row=2, column=1, value="Source Value").font = SUBHEADER_FONT
-            ws.cell(row=2, column=2, value="Count").font = SUBHEADER_FONT
-            ws.cell(row=2, column=3, value="").font = SUBHEADER_FONT
-            ws.cell(row=2, column=4, value="Target Value").font = SUBHEADER_FONT
-            ws.cell(row=2, column=5, value="Notes").font = SUBHEADER_FONT
+            # Row 5: Attribute labels
+            c = ws.cell(row=5, column=2, value="Attribute")
+            c.font = bold_font
+            c.fill = ATTRVAL_HEADER_FILL
+            c = ws.cell(row=5, column=3, value=domain_name)
+            c.font = DATA_FONT
+            c.fill = ATTRVAL_LABEL_FILL
+            c = ws.cell(row=5, column=5, value="Attribute")
+            c.font = bold_font
+            c.fill = ATTRVAL_HEADER_FILL
+            c = ws.cell(row=5, column=6, value=domain_name)
+            c.font = DATA_FONT
+            c.fill = ATTRVAL_LABEL_FILL
 
-            _write_header_row(ws, 2, ["Source Value", "Count", "", "Target Value", "Notes"])
+            # Row 6: Column headers
+            for col, hdr in [(2, "Value"), (3, "Count"), (5, "Value"), (6, "Description")]:
+                c = ws.cell(row=6, column=col, value=hdr)
+                c.font = bold_font
+                c.fill = ATTRVAL_COLHDR_FILL
 
+            # Data rows
             if isinstance(val, list):
-                for j, entry in enumerate(val, start=3):
-                    _write_data_row(ws, j, [
-                        entry.get("source_value", ""),
-                        entry.get("count", ""),
-                        "",
-                        entry.get("target_value", ""),
-                        entry.get("notes", ""),
-                    ])
-            _set_col_widths(ws, {"A": 25, "B": 10, "C": 3, "D": 25, "E": 40})
+                for j, entry in enumerate(val, start=7):
+                    c = ws.cell(row=j, column=2, value=entry.get("source_value", ""))
+                    c.font = DATA_FONT
+                    c.fill = ATTRVAL_SRC_FILL
+                    c = ws.cell(row=j, column=3, value=entry.get("count", ""))
+                    c.font = DATA_FONT
+                    c.fill = ATTRVAL_SRC_FILL
+                    c = ws.cell(row=j, column=5, value=entry.get("target_value", ""))
+                    c.font = DATA_FONT
+                    c.fill = ATTRVAL_TGT_FILL
+                    c = ws.cell(row=j, column=6, value=entry.get("notes", ""))
+                    c.font = DATA_FONT
+                    c.fill = ATTRVAL_TGT_FILL
+
+            _set_col_widths(ws, {"A": 13, "B": 21, "C": 18, "D": 13, "E": 18, "F": 19})
 
     # Save
     out_dir = ensure_output_dir(job_dir)
