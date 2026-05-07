@@ -50,13 +50,27 @@ You run the NMT validation engine against generated output and format results, i
 Once data is loaded into the target database, run the built-in NMT integrity checks:
 
 ```bash
-comms_db {db_name} validate data '*'
+comms_db {db_name} validate data '{category}'
 ```
 
 - `{db_name}` — the target database name (from `migration.yaml`)
-- `'*'` — validates all feature types; can be replaced with a specific type (e.g., `'mywcom_fiber_segment'`) to scope the check
-- The checker validates referential integrity, containment consistency, segment chain continuity, connection validity, and geometry rules against the live database
-- Output is a list of violations grouped by check type — parse these into the severity-ranked report
+- `{category}` — the validation category to check
+
+**CRITICAL — Do NOT rely on the `'*'` wildcard alone.** In practice, `'*'` may not iterate all categories or may produce misleading "0 errors" output without actually checking records. Instead, **run each category individually** and verify that record counts appear in the output:
+
+```bash
+comms_db {db_name} validate data 'structures'
+comms_db {db_name} validate data 'routes'
+comms_db {db_name} validate data 'equipment'
+comms_db {db_name} validate data 'cables'
+comms_db {db_name} validate data 'segments'
+comms_db {db_name} validate data 'connections'
+```
+
+- Confirm each category shows `N records checked` — if no count is shown, the check didn't actually run
+- Parse output into the severity-ranked report
+- **Pre-existing data**: The database may contain demo/test data from before the migration. If validation reports errors on records outside the migrated ID range, note them separately as pre-existing issues (not migration defects)
+- For containerized deployments, run via: `docker exec {container} comms_db {db_name} validate data '{category}'`
 
 Run this **after every load phase** (or at minimum after all phases complete) to catch issues early.
 

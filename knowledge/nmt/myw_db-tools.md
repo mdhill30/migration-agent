@@ -160,6 +160,10 @@ myw_db iqgeo run --command "print(db.structures.count())"
 - `--command` — Execute Python command (has access to `db` object)
 - `--commit` — Perform commit after script completes
 
+**⚠️ CRITICAL — `run --sql` does NOT auto-commit.** INSERT, UPDATE, DELETE, and DDL statements executed via `--sql` are rolled back unless `--commit` is also passed. For reliable DML, either:
+1. Use `myw_db run --sql "..." --commit`
+2. Or use `psql` directly: `psql -U {user} -h {host} -d {db} -c "SQL"`
+
 **Use case**: Post-load validation, data transformation, analytics.
 
 **Example: Count objects by type**:
@@ -266,6 +270,32 @@ Issues found: 15
 ```
 
 **Use case**: Post-load validation before sign-off.
+
+---
+
+## Docker / Container Deployments
+
+When NMT runs inside a Docker container, all `myw_db` and `comms_db` commands must be prefixed with `docker exec`:
+
+```bash
+# General pattern
+docker exec {container} myw_db {db_name} {command} [options]
+docker exec {container} comms_db {db_name} {command} [options]
+
+# Load data (files must be inside the container — use docker cp first)
+docker cp ./output/data/ {container}:/tmp/migration/
+docker exec {container} myw_db {db_name} load /tmp/migration/{feature}.csv
+
+# Direct SQL (reliable for DML — always commits)
+docker exec {container} psql -U {user} -h {pg_host} -d {db_name} -c "SQL;"
+```
+
+**Key paths inside a typical IQGeo container**:
+- `myw_db`: `/opt/iqgeo/platform/Tools/myw_db`
+- `comms_db`: `/opt/iqgeo/platform/WebApps/myworldapp/modules/comms/tools/comms_db`
+- PostgreSQL host: typically `postgis` (container-internal hostname), port 5432
+
+**Detecting the environment**: Check `migration.yaml` for a `container` key. If present, all database operations must use `docker exec`.
 
 ---
 

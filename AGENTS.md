@@ -82,10 +82,20 @@ Each review issue is tagged with a re-entry point:
 
 ## Key Artefacts
 
-- `migration.yaml` — machine-readable job config
+- `migration.yaml` — machine-readable job config (includes `container` key for Docker deployments)
 - `context.md` — human-supplied customer knowledge
 - `dmdd.xlsx` / `dmdd.yaml` — Data Migration Design Document (includes structural transformation rules)
 - `dqr.xlsx` / `dqr.yaml` — Data Quality Review
+
+## Target Environment Detection
+
+At the start of the loop, detect the target environment from `migration.yaml`:
+
+- **`container`** — if present, all `myw_db`/`comms_db` commands must be run via `docker exec {container}`; files must be copied in with `docker cp`
+- **`db_host`** — PostgreSQL host (often `postgis` inside Docker, `localhost` for native)
+- **`db_name`** — target database name
+
+Record these in `context.md` under a "Target Environment" section so all stages have consistent access. Never assume local access to `myw_db` — always check.
 
 ## Structural Model Transformation
 

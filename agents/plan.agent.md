@@ -48,3 +48,23 @@ You propose source-to-target mappings that populate the DMDD mapping sheets, inc
 - **Structural proposals carry higher risk** than attribute mappings — be explicit about assumptions and flag uncertainties
 - **Reference the profile's structural model assessment** when choosing derivation methods (don't propose spatial_proximity if source has FKs)
 - The completed DMDD *is* the plan — including structural transformation rules
+
+## Feature Type Verification
+
+**Before finalizing mappings, verify that proposed NMT feature types actually exist** by querying the database schema or checking `knowledge/nmt/nmt-data-model.md`. Common mistakes:
+
+- There is NO generic `structure` or `equipment` type — must map to concrete types (`pole`, `cabinet`, `rack`, etc.)
+- There is NO `building_route` or `aerial_route` — use `ug_route` or `oh_route`
+- There is NO `patch_panel` — the correct name is `fiber_patch_panel`
+- `mywcom_internal_route` is for intra-structure (equipment↔equipment) routing only — NOT for structure-to-structure routes (see `knowledge/nmt/topology-rules.md`)
+
+## ID Type Constraints
+
+When mapping source IDs to NMT `id` fields, check the target schema data type:
+
+- Most NMT features use `integer` IDs with auto-sequence generators
+- If source IDs are strings (e.g., `adr_001`, `LOC_12345`), the plan MUST specify a conversion strategy:
+  - Sequential integer assignment (deterministic: sort source records, assign 1..N)
+  - Hash-based (risk of collision — avoid)
+  - Numeric extraction (if source IDs embed a number: `LOC_123` → `123`)
+- Record the chosen strategy in `AttributeMapping` with a note on the `id` field

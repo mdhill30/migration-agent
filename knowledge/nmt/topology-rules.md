@@ -19,6 +19,20 @@ Structure A ←——— Route ———→ Structure B
 - A structure can be the start/end of multiple routes
 - Routes model physical pathways: trenches, aerial spans, conduit paths
 
+## Route Type Semantics (CRITICAL)
+
+NMT has two categories of route:
+
+| Route type | Purpose | Connects | Key fields |
+|---|---|---|---|
+| `ug_route` | Underground pathway between structures | structure ↔ structure | `in_structure`, `out_structure`, `path` |
+| `oh_route` | Overhead/aerial pathway between structures | structure ↔ structure | `in_structure`, `out_structure`, `path` |
+| `mywcom_internal_route` | **Intra-structure** routing (equipment-to-equipment WITHIN a single structure) | equipment ↔ equipment | `in_object`, `out_object` (NOT `in_structure`/`out_structure`) |
+
+**Common mistake**: Mapping facade/building-attached routes to `mywcom_internal_route`. This is WRONG — facade routes still connect two structures (even if physically attached to a building wall), so they must use `ug_route` or `oh_route`.
+
+**Rule of thumb**: If a source route has geometry spanning between two distinct structures → use `ug_route` or `oh_route`. Only use `mywcom_internal_route` for modelling cable paths between equipment slots/ports inside the same structure.
+
 ## Cable Segmentation
 
 A cable in NMT is an ordered chain of cable segments. Each segment spans exactly one route (or is internal to one structure).

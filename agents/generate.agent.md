@@ -259,6 +259,67 @@ Transform scripts accept these environment variables:
 
 **Always set these explicitly** — default paths in scripts may be stale.
 
+## Target Environment: Docker / Container Deployments
+
+Many NMT installations run inside Docker containers. When `migration.yaml` specifies a `container` key, all database commands must be executed inside the container:
+
+```bash
+# Copy files into the container
+docker cp output/data/ {container}:/tmp/migration_data/
+
+# Execute myw_db inside the container
+docker exec {container} myw_db {db_name} load /tmp/migration_data/{feature}.csv
+
+# Execute comms_db validation
+docker exec {container} comms_db {db_name} validate data '{category}'
+
+# Direct psql access (for DDL, DML, or when myw_db doesn't commit)
+docker exec {container} psql -U {user} -h {host} -d {db_name} -c "SQL_STATEMENT"
+```
+
+**Key Docker pitfalls**:
+- `myw_db run --sql "INSERT ..."` does NOT auto-commit — use `--commit` flag or use `psql` directly
+- File paths in commands must reference the container filesystem, not the host
+- Check container paths: `myw_db` is typically at `/opt/iqgeo/platform/Tools/myw_db`, `comms_db` at `/opt/iqgeo/platform/WebApps/myworldapp/modules/comms/tools/comms_db`
+
+## Pre-Generate Schema Verification
+
+**CRITICAL — Before generating CSVs, verify feature type schemas against the actual database.** Wrong column names in CSVs cause data to be silently dropped.
+
+Steps:
+1. Query the database for the actual column names of each target feature type:
+   ```bash
+   docker exec {container} myw_db {db_name} run --sql "SELECT column_name FROM information_schema.columns WHERE table_name = '{feature_type}' ORDER BY ordinal_position;"
+   ```
+2. Use these exact column names as CSV headers
+3. Common mistakes to avoid:
+   - `fiber_cable`: uses `type` and `fiber_count` (NOT `technology` or `count`)
+   - `address`: `id` field is integer (source string IDs require conversion to sequential integers)
+   - Feature types that don't exist produce no error — data just disappears
+
+## Post-Load Configuration
+
+After loading data, apply these post-load steps:
+
+### Layer Group Visibility
+
+Loaded features won't appear in the NMT web UI until added to a layer group. Add them via direct SQL:
+
+```sql
+INSERT INTO myw_layer_group_item (layer_group, layer_name, min_scale, max_scale, visible)
+VALUES ('mywcom_fiber_group', '{layer_name}', 0, 0, true)
+ON CONFLICT DO NOTHING;
+```
+
+Common layer names: `structures`, `cable_segments`, `connections`, `internal_route`, `addresses`
+
+### Sequence Update
+
+After bulk-loading data with explicit IDs, update PostgreSQL sequences to avoid ID collisions:
+```bash
+docker exec {container} myw_db {db_name} load --update_sequence
+```
+
 ## Key Learnings
 
 ### Schema Field Warnings
