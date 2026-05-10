@@ -32,6 +32,20 @@ When the user says **"Run the entire migration loop"** (or equivalent), execute 
 6. Run **review** → reconcile counts, spot-check, tag issues with re-entry points
 7. If review produces issues with re-entry points → loop back to the indicated stage and repeat
 
+### Stage Transition Summaries
+
+**After each stage completes, present a brief summary to the user before moving to the next stage.** This keeps the user informed and provides natural checkpoints. The summary should be concise (5–15 lines) and include:
+
+- **What was done** — key actions taken, artefacts produced or updated
+- **Key findings** — notable discoveries, decisions made, risks identified
+- **Numbers** — record counts, error counts, mapping coverage, confidence levels
+- **DQR changes** — new issues created, issues resolved, current quality posture
+- **Next step** — what the next stage will do
+
+Format each summary with a clear header: `## ✅ Profile Complete`, `## ✅ Plan Complete`, etc.
+
+Do NOT wait for user approval between stages unless a stop condition is met. The summary is informational — the loop continues automatically.
+
 ### Stop Conditions — When to Pause and Ask
 
 **Stop the loop and ask the user** when any of these conditions are met:
