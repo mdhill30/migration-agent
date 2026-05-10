@@ -163,14 +163,15 @@ Human-supplied customer knowledge — what the data alone doesn't tell you:
 ```
 nmt-migrate/
 ├── AGENTS.md                   # Orchestrator instructions (the "brain")
-├── agents/                     # Stage subagents
-│   ├── profile.agent.md
-│   ├── plan.agent.md
-│   ├── generate.agent.md
-│   ├── validate.agent.md
-│   ├── review.agent.md
-│   ├── data-quality.agent.md
-│   └── docs.agent.md          # On-demand document generation
+├── .github/
+│   └── agents/                 # Stage subagents (VS Code discovery path)
+│       ├── profile.agent.md
+│       ├── plan.agent.md
+│       ├── generate.agent.md
+│       ├── validate.agent.md
+│       ├── review.agent.md
+│       ├── data-quality.agent.md
+│       └── docs.agent.md      # On-demand document generation
 ├── tools/                      # Python CLI tools
 │   ├── profile_cli.py         # Schema inference, sampling, DMDD inventory
 │   ├── dmdd_cli.py            # DMDD YAML validation, summary, manipulation
