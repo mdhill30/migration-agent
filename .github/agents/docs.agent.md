@@ -1,6 +1,7 @@
 ---
 description: Documentation Agent — produces customer-facing deliverables from migration artefacts
 user-invocable: true
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Documentation Agent

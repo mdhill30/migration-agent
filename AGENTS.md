@@ -1,10 +1,5 @@
 ---
 description: NMT Migration Orchestrator — drives the profile→plan→generate→validate→review loop
-tools:
-  - run_in_terminal
-  - read_file
-  - create_file
-  - replace_string_in_file
 agents:
   - .github/agents/profile.agent.md
   - .github/agents/plan.agent.md

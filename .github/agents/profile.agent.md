@@ -1,6 +1,7 @@
 ---
 description: Profile source data — schema inference, sampling, gap detection, DMDD inventory population
-user-invocable: false
+user-invocable: true
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Profile Agent
@@ -86,17 +87,27 @@ For shapefiles: read `.prj` file directly. Common patterns:
 
 -   Read `migration.yaml` for source location and CRS
 -   Read `context.md` for known terminology and overrides
--   Use `tools/profile_cli.py` for compute-heavy operations (preferred over inline Python)
+-   **ALWAYS use `tools/profile_cli.py` for profiling operations** — DO NOT write custom profiling scripts or inline Python for schema inference, value distributions, null analysis, or inventory generation. If `profile_cli.py` does not support the source format or a specific operation, extend the tool rather than working around it.
 -   Report ambiguities rather than guessing
 -   Be conservative with Include? flags — flag uncertain items for human review
 -   When value meaning is unclear, propose interpretations but mark as `needs_decision`
 -   Identify patterns in field naming (e.g., MODEL = `<count>CT <placement>`)
 
+## DQR Maintenance During Profiling
+
+- **Every quality issue discovered → create a DQR entry immediately.** Include evidence (counts, examples, error messages).
+- **Use `tools/dqr_cli.py` for DQR issue lifecycle management.**
+- Severity reflects **migration impact**, not general data quality.
+- Link DQR entries to DMDD rows via `dmdd_refs` where applicable.
+
 ## Tool Usage
 
 ```bash
-# Full schema profile for all layers
+# Full schema profile for all layers (shapefile)
 python3 tools/profile_cli.py schema --source source/IQGEO --format shapefile
+
+# Full schema profile for GeoPackage layers
+python3 tools/profile_cli.py schema --source source/ --format gpkg
 
 # Value distribution for a specific field
 python3 tools/profile_cli.py values --source source/IQGEO/SUMMIT_FIBERSPAN.shp --field MODEL --top 25

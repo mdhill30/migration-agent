@@ -1,6 +1,7 @@
 ---
 description: Generate migration artefacts and load them into the target database
-user-invocable: false
+user-invocable: true
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Generate Agent
