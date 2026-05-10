@@ -1,9 +1,6 @@
 ---
 description: Data quality assessment — DQR issue management, treatment recommendations, quality reporting
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
 ---
 
 # Data Quality Agent

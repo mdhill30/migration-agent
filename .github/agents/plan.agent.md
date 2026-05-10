@@ -1,9 +1,6 @@
 ---
 description: Plan mappings — propose object/attribute mappings from source to NMT target using schema knowledge and heuristics
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
 ---
 
 # Plan Agent

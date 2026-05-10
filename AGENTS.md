@@ -6,13 +6,13 @@ tools:
   - create_file
   - replace_string_in_file
 agents:
-  - agents/profile.agent.md
-  - agents/plan.agent.md
-  - agents/generate.agent.md
-  - agents/validate.agent.md
-  - agents/review.agent.md
-  - agents/data-quality.agent.md
-  - agents/docs.agent.md
+  - .github/agents/profile.agent.md
+  - .github/agents/plan.agent.md
+  - .github/agents/generate.agent.md
+  - .github/agents/validate.agent.md
+  - .github/agents/review.agent.md
+  - .github/agents/data-quality.agent.md
+  - .github/agents/docs.agent.md
 ---
 
 # NMT Migration Orchestrator

@@ -1,9 +1,6 @@
 ---
 description: Validate generated output — run NMT validation engine, format reports, propose fixes
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
 ---
 
 # Validate Agent

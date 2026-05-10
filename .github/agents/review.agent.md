@@ -1,9 +1,6 @@
 ---
 description: Review migration output — spatial sanity, statistical reconciliation, spot checks
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
 ---
 
 # Review Agent

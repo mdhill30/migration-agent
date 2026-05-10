@@ -1,12 +1,6 @@
 ---
 description: Generate migration artefacts and load them into the target database
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
-  - replace_string_in_file
-  - create_file
-  - vscode_askQuestions
 ---
 
 # Generate Agent

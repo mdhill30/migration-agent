@@ -1,11 +1,6 @@
 ---
 description: Profile source data — schema inference, sampling, gap detection, DMDD inventory population
 user-invocable: false
-tools:
-    - run_in_terminal
-    - read_file
-    - create_file
-    - replace_string_in_file
 ---
 
 # Profile Agent
