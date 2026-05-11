@@ -91,7 +91,7 @@ def profile_schema(source_path, layer_name=None):
 
     info = {
         "name": layer_name,
-        "path": shp_path,
+        "path": source_path,
         "geometry": None,
         "count": 0,
         "fields": [],
@@ -104,7 +104,7 @@ def profile_schema(source_path, layer_name=None):
             info["count"] = int(line.split(":", 1)[1].strip())
         elif ": " in line and not line.startswith(" ") and not line.startswith("INFO"):
             # Field definition line: "FIELDNAME: Type (width.precision)"
-            match = re.match(r"^([A-Z_][A-Z_0-9]*): (.+)$", line)
+            match = re.match(r"^([A-Za-z_][A-Za-z_0-9]*): (.+)$", line)
             if match:
                 field_name = match.group(1)
                 field_type = match.group(2).strip()
