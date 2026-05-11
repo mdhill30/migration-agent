@@ -56,10 +56,10 @@ def find_layers(source_dir, fmt="shapefile"):
     if fmt == "shapefile":
         return sorted(glob.glob(os.path.join(source_dir, "*.shp")))
     elif fmt == "gdb":
-        # For GDB, list layers via ogrinfo
+        # For GDB, list layers via ogrinfo — return (container, layer) tuples
         output = run_ogrinfo([source_dir])
-        layers = re.findall(r"^\d+: (\S+)", output, re.MULTILINE)
-        return layers
+        names = re.findall(r"^\d+: (.+?)\s*\(.*\)\s*$", output, re.MULTILINE)
+        return [(source_dir, n) for n in names]
     elif fmt == "csv":
         return sorted(glob.glob(os.path.join(source_dir, "*.csv")))
     elif fmt == "gpkg":
@@ -68,7 +68,7 @@ def find_layers(source_dir, fmt="shapefile"):
         layers = []
         for gpkg in gpkg_files:
             output = run_ogrinfo([gpkg])
-            for match in re.finditer(r"^\d+: (\S+)", output, re.MULTILINE):
+            for match in re.finditer(r"^\d+: (.+?)\s*\(.*\)\s*$", output, re.MULTILINE):
                 layers.append((gpkg, match.group(1)))
         return layers
     return []
@@ -147,16 +147,21 @@ def profile_nulls(source_dir, fields, fmt="shapefile"):
     layers = find_layers(source_dir, fmt)
     results = []
 
-    for shp_path in layers:
-        layer_name = get_layer_name(shp_path)
-        schema = profile_schema(shp_path)
+    for layer in layers:
+        # Normalise to (source_path, layer_name) regardless of format
+        if isinstance(layer, tuple):
+            source_path, layer_name = layer
+        else:
+            source_path, layer_name = layer, get_layer_name(layer)
+
+        schema = profile_schema(source_path, layer_name)
         layer_fields = {f["name"] for f in schema["fields"]}
 
         for field in fields:
             if field not in layer_fields:
                 continue
 
-            output = run_ogrinfo(["-q", shp_path, "-sql",
+            output = run_ogrinfo(["-q", source_path, "-sql",
                                   f'SELECT {field} FROM "{layer_name}" WHERE {field} IS NULL'])
             null_count = output.count("OGRFeature")
             total = schema["count"]
