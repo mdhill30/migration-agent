@@ -89,6 +89,17 @@ Generate is where the plan meets reality. Keep both documents in sync:
 - **Containment/topology/connectivity rule produces unexpected results** (high orphan rate, broken chains) → **create DQR entry** and update DMDD if the rule was adjusted.
 - **Load produces warnings or dropped fields** → **create DQR entry** documenting what was lost and why.
 
+### DMDD Reconciliation (MANDATORY before handoff to validate)
+
+After generation is complete and validation passes, **before declaring the stage done**, run a reconciliation check:
+
+1. **CSV ↔ DMDD column check**: For each generated CSV, verify every column has a matching `attribute_mapping` entry in the DMDD. Add any missing entries.
+2. **Transformation accuracy check**: For critical fields (`fiber_count`, `splice`, `in_side`/`out_side`, strand numbering), confirm the DMDD `transformations` text matches the actual script logic. During iterative fix cycles, the script often changes but the DMDD doesn't — catch this here.
+3. **Count reconciliation**: Update `object_mapping.expected_count` to match actual generated row counts.
+4. **Status update**: Move all implemented mappings from `Pending Review` to `Approved - Mapping`.
+
+This step is critical because iterative fix cycles (fix script → reload → re-validate) naturally cause DMDD drift. The fix focus is on making validation pass; the DMDD update gets deferred and forgotten. This reconciliation catches the gap.
+
 ## Reference Knowledge
 
 Before generating, read these knowledge files for detailed formats, algorithms, and pitfalls:
