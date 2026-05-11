@@ -5,7 +5,7 @@ profile_cli.py — Schema inference, value profiling, null analysis, DMDD invent
 Requires: GDAL (ogrinfo on PATH), PyYAML
 
 Usage:
-    python3 profile_cli.py schema --source <dir_or_file> [--format shapefile|gdb|csv]
+    python3 profile_cli.py schema --source <dir_or_file> [--format shapefile|gdb|csv|gpkg]
     python3 profile_cli.py values --source <shp_file> --field <FIELD> [--top 25]
     python3 profile_cli.py nulls --source <dir> --fields <comma_separated>
     python3 profile_cli.py inventory --source <dir> --output <dmdd.yaml>
@@ -56,12 +56,21 @@ def find_layers(source_dir, fmt="shapefile"):
     if fmt == "shapefile":
         return sorted(glob.glob(os.path.join(source_dir, "*.shp")))
     elif fmt == "gdb":
-        # For GDB, list layers via ogrinfo
+        # For GDB, list layers via ogrinfo — return (container, layer) tuples
         output = run_ogrinfo([source_dir])
-        layers = re.findall(r"^\d+: (\S+)", output, re.MULTILINE)
-        return layers
+        names = re.findall(r"^\d+: (.+?)\s*\(.*\)\s*$", output, re.MULTILINE)
+        return [(source_dir, n) for n in names]
     elif fmt == "csv":
         return sorted(glob.glob(os.path.join(source_dir, "*.csv")))
+    elif fmt == "gpkg":
+        # For GeoPackage, find .gpkg files and list their layers via ogrinfo
+        gpkg_files = sorted(glob.glob(os.path.join(source_dir, "*.gpkg")))
+        layers = []
+        for gpkg in gpkg_files:
+            output = run_ogrinfo([gpkg])
+            for match in re.finditer(r"^\d+: (.+?)\s*\(.*\)\s*$", output, re.MULTILINE):
+                layers.append((gpkg, match.group(1)))
+        return layers
     return []
 
 
@@ -70,14 +79,19 @@ def get_layer_name(shp_path):
     return Path(shp_path).stem
 
 
-def profile_schema(shp_path):
-    """Profile a single layer: geometry, count, fields."""
-    layer_name = get_layer_name(shp_path)
-    output = run_ogrinfo(["-so", shp_path, layer_name])
+def profile_schema(source_path, layer_name=None):
+    """Profile a single layer: geometry, count, fields.
+    
+    For shapefiles: source_path is the .shp file, layer_name is derived from filename.
+    For gpkg/gdb: source_path is the container file, layer_name must be provided.
+    """
+    if layer_name is None:
+        layer_name = get_layer_name(source_path)
+    output = run_ogrinfo(["-so", source_path, layer_name])
 
     info = {
         "name": layer_name,
-        "path": shp_path,
+        "path": source_path,
         "geometry": None,
         "count": 0,
         "fields": [],
@@ -90,7 +104,7 @@ def profile_schema(shp_path):
             info["count"] = int(line.split(":", 1)[1].strip())
         elif ": " in line and not line.startswith(" ") and not line.startswith("INFO"):
             # Field definition line: "FIELDNAME: Type (width.precision)"
-            match = re.match(r"^([A-Z_][A-Z_0-9]*): (.+)$", line)
+            match = re.match(r"^([A-Za-z_][A-Za-z_0-9]*): (.+)$", line)
             if match:
                 field_name = match.group(1)
                 field_type = match.group(2).strip()
@@ -133,16 +147,21 @@ def profile_nulls(source_dir, fields, fmt="shapefile"):
     layers = find_layers(source_dir, fmt)
     results = []
 
-    for shp_path in layers:
-        layer_name = get_layer_name(shp_path)
-        schema = profile_schema(shp_path)
+    for layer in layers:
+        # Normalise to (source_path, layer_name) regardless of format
+        if isinstance(layer, tuple):
+            source_path, layer_name = layer
+        else:
+            source_path, layer_name = layer, get_layer_name(layer)
+
+        schema = profile_schema(source_path, layer_name)
         layer_fields = {f["name"] for f in schema["fields"]}
 
         for field in fields:
             if field not in layer_fields:
                 continue
 
-            output = run_ogrinfo(["-q", shp_path, "-sql",
+            output = run_ogrinfo(["-q", source_path, "-sql",
                                   f'SELECT {field} FROM "{layer_name}" WHERE {field} IS NULL'])
             null_count = output.count("OGRFeature")
             total = schema["count"]
@@ -199,8 +218,11 @@ def generate_inventory(source_dir, fmt="shapefile"):
     object_inventory = []
     attribute_inventory = []
 
-    for shp_path in layers:
-        schema = profile_schema(shp_path)
+    for layer in layers:
+        if isinstance(layer, tuple):
+            schema = profile_schema(layer[0], layer[1])
+        else:
+            schema = profile_schema(layer)
 
         # Determine include flag
         include = "Yes"
@@ -257,8 +279,11 @@ def cmd_schema(args):
         print(f"Found {len(layers)} layers in {source}\n")
         print(f"{'Layer':<40} {'Geometry':<15} {'Count':>8}  Fields")
         print("-" * 90)
-        for shp_path in layers:
-            info = profile_schema(shp_path)
+        for layer in layers:
+            if isinstance(layer, tuple):
+                info = profile_schema(layer[0], layer[1])
+            else:
+                info = profile_schema(layer)
             field_names = [f["name"] for f in info["fields"] if f["name"] not in SYSTEM_FIELDS]
             print(f"{info['name']:<40} {info['geometry'] or 'None':<15} {info['count']:>8}  {', '.join(field_names[:6])}")
             if len(field_names) > 6:
@@ -325,7 +350,7 @@ def main():
     # schema
     p_schema = subparsers.add_parser("schema", help="Infer schemas from source layers")
     p_schema.add_argument("--source", required=True, help="Source directory or file")
-    p_schema.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv"])
+    p_schema.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv", "gpkg"])
 
     # values
     p_values = subparsers.add_parser("values", help="Profile value distributions")
@@ -337,7 +362,7 @@ def main():
     p_nulls = subparsers.add_parser("nulls", help="Check null rates across layers")
     p_nulls.add_argument("--source", required=True, help="Source directory")
     p_nulls.add_argument("--fields", required=True, help="Comma-separated field names")
-    p_nulls.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv"])
+    p_nulls.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv", "gpkg"])
 
     # crs
     p_crs = subparsers.add_parser("crs", help="Detect CRS from .prj files")
@@ -347,7 +372,7 @@ def main():
     p_inv = subparsers.add_parser("inventory", help="Generate DMDD inventory")
     p_inv.add_argument("--source", required=True, help="Source directory")
     p_inv.add_argument("--output", help="Output DMDD YAML file (updates in place)")
-    p_inv.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv"])
+    p_inv.add_argument("--format", default="shapefile", choices=["shapefile", "gdb", "csv", "gpkg"])
 
     args = parser.parse_args()
 

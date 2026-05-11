@@ -1,11 +1,7 @@
 ---
 description: Documentation Agent — produces customer-facing deliverables from migration artefacts
 user-invocable: true
-tools:
-    - run_in_terminal
-    - read_file
-    - create_file
-    - replace_string_in_file
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Documentation Agent

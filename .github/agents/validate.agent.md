@@ -1,9 +1,7 @@
 ---
 description: Validate generated output — run NMT validation engine, format reports, propose fixes
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Validate Agent
@@ -80,7 +78,7 @@ Run this **after every load phase** (or at minimum after all phases complete) to
 
 - Validates **internal consistency only**, not correctness
 - Use `comms_db {db_name} validate data '*'` as the primary validation engine against loaded data
-- Use `validate_cli.py` for additional custom checks not covered by the built-in validator
+- Use SQL queries or Python scripts for additional custom checks not covered by the built-in validator
 - Categorise findings by severity: blocker, high, medium, low, info
 - Generate→validate runs autonomously (no human gate between them)
 - Auto-fix policy: propose-only for v1

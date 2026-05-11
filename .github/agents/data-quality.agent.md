@@ -1,9 +1,7 @@
 ---
 description: Data quality assessment — DQR issue management, treatment recommendations, quality reporting
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Data Quality Agent

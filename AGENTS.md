@@ -1,18 +1,13 @@
 ---
 description: NMT Migration Orchestrator — drives the profile→plan→generate→validate→review loop
-tools:
-  - run_in_terminal
-  - read_file
-  - create_file
-  - replace_string_in_file
 agents:
-  - agents/profile.agent.md
-  - agents/plan.agent.md
-  - agents/generate.agent.md
-  - agents/validate.agent.md
-  - agents/review.agent.md
-  - agents/data-quality.agent.md
-  - agents/docs.agent.md
+  - .github/agents/profile.agent.md
+  - .github/agents/plan.agent.md
+  - .github/agents/generate.agent.md
+  - .github/agents/validate.agent.md
+  - .github/agents/review.agent.md
+  - .github/agents/data-quality.agent.md
+  - .github/agents/docs.agent.md
 ---
 
 # NMT Migration Orchestrator
@@ -32,10 +27,24 @@ When the user says **"Run the entire migration loop"** (or equivalent), execute 
 1. Read `migration.yaml` and `context.md` to understand the job
 2. Run **profile** → produce inventory, DQR, structural assessment
 3. Run **plan** → produce DMDD mappings + structural rules
-3. Run **generate** → produce deterministic migration script (single-command entry point), then execute it to load into database and run integrity checks
+3. Run **generate** → produce deterministic migration script (single-command entry point), then execute it to load into database and run integrity checks. **After all fix cycles complete, run DMDD reconciliation** (CSV↔DMDD column check, transformation accuracy, count update, status update) before advancing.
 5. Run **validate** → run `comms_db {db_name} validate data '*'`, format report
 6. Run **review** → reconcile counts, spot-check, tag issues with re-entry points
 7. If review produces issues with re-entry points → loop back to the indicated stage and repeat
+
+### Stage Transition Summaries
+
+**After each stage completes, present a brief summary to the user before moving to the next stage.** This keeps the user informed and provides natural checkpoints. The summary should be concise (5–15 lines) and include:
+
+- **What was done** — key actions taken, artefacts produced or updated
+- **Key findings** — notable discoveries, decisions made, risks identified
+- **Numbers** — record counts, error counts, mapping coverage, confidence levels
+- **DQR changes** — new issues created, issues resolved, current quality posture
+- **Next step** — what the next stage will do
+
+Format each summary with a clear header: `## ✅ Profile Complete`, `## ✅ Plan Complete`, etc.
+
+Do NOT wait for user approval between stages unless a stop condition is met. The summary is informational — the loop continues automatically.
 
 ### Stop Conditions — When to Pause and Ask
 
@@ -123,13 +132,26 @@ The DQR and DMDD are **living documents** that every stage must keep in sync wit
 
 This ensures that at any point in the migration, the DQR accurately reflects the current quality posture and the DMDD accurately reflects the current transformation logic.
 
+### DMDD Reconciliation Gate (CRITICAL)
+
+After every generate→validate→fix cycle — and **before declaring the generate stage complete** — the generate agent MUST perform a DMDD reconciliation check:
+
+1. **Compare every CSV column header** in the generated output against the DMDD `attribute_mapping` entries. Every column in every CSV must have a corresponding DMDD entry.
+2. **Compare the actual transformation logic** in the generated script against the DMDD `attribute_mapping.transformations` and `connectivity_mapping` fields. If the script does something different from what the DMDD says (e.g., different source for `fiber_count`, different `splice` logic), **update the DMDD first**.
+3. **Check `expected_count`** in `object_mapping` against actual generated row counts. Update if they differ.
+4. **Check status fields** — any mapping that was implemented should be `Approved - Mapping`, not `Pending Review`.
+
+This check exists because iterative fix cycles (fix script → reload → re-validate) naturally cause DMDD drift. The fix focus is on making validation pass, and the DMDD update gets forgotten. The reconciliation gate catches this.
+
+The orchestrator should **not advance from generate to validate** (in the formal sense) until the DMDD reconciliation is complete.
+
 ## Dependency Tracking
 
 All agents **must** keep `requirements.txt` up to date. Whenever a Python package is used (imported in generated scripts, tools, or notebooks), add it to `requirements.txt` if not already present. Use the `package>=version` format with a minimum version pin.
 
 ## Shared Improvements
 
-When any agent modifies shared resources — files that benefit all migrations, not just the current job — it **must** propose a commit & push (or opening a pull request) at the end of the task. Shared resources include:
+When any agent modifies shared resources — files that benefit all migrations, not just the current job — it **must** propose to open a pull request at the end of the task. Shared resources include:
 
 - `tools/` — CLI tools, utilities
 - `agents/` — agent instruction files

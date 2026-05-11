@@ -1,9 +1,7 @@
 ---
 description: Plan mappings — propose object/attribute mappings from source to NMT target using schema knowledge and heuristics
 user-invocable: false
-tools:
-  - run_in_terminal
-  - read_file
+model: Claude Opus 4.6 (copilot)
 ---
 
 # Plan Agent
@@ -68,3 +66,9 @@ When mapping source IDs to NMT `id` fields, check the target schema data type:
   - Hash-based (risk of collision — avoid)
   - Numeric extraction (if source IDs embed a number: `LOC_123` → `123`)
 - Record the chosen strategy in `AttributeMapping` with a note on the `id` field
+
+## DQR Maintenance During Planning
+
+- **Every mapping ambiguity or data gap discovered → create or update a DQR entry.** Include evidence and the affected DMDD row.
+- **Link `fix_in_flight` treatments to the DMDD mapping** that implements the fix.
+- **If a DQR issue from profiling is resolved by the mapping strategy → update its status.**
