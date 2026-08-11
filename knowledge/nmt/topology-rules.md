@@ -169,6 +169,18 @@ When source data provides cable geometry and structure point locations but no ex
 
 **Important**: This approach produces transit-only segment chains (one segment per route span). Internal segments are NOT generated. This is the preferred approach for migration — internal segments should only be added in a later pass if the source data contains splice/termination records that require them.
 
+## Cable Primary Geometry (`path`) vs `offset_geom`
+
+**Rule**: A cable's primary `path` MUST be **derived from the geometries of the segments/routes it traverses**, not from the raw source cable line. Stitch the ordered route geometries (order by the source cable→span association index) into one continuous linestring, orienting each route so its nearest endpoint joins the running path and dropping the shared seam vertex. This keeps the cable geometry consistent with its segments and with the structure-snapped route endpoints, and guarantees the cable passes through every intermediate structure (important for multi-span cables).
+
+**Preserve the source line**: When the source system provides its own digitized cable geometry, store that raw line (reprojected only, not snapped) in the cable's `offset_geom` field so it is retained for reference/QA. `offset_geom` is a non-mandatory linestring on `*_cable` features.
+
+- `path` (mandatory) ← stitched segment/route geometries, structure-snapped endpoints
+- `offset_geom` (optional) ← original source cable line, reproject-only
+- Fall back to the source line for `path` only if no segments resolve for the cable.
+
+This mirrors the segment rule above: segments copy their housing route geometry, and the cable path is the union of those segment geometries — so cable and segment geometries are always coincident.
+
 ## Validation Rules (Topology)
 
 | Rule | Severity |

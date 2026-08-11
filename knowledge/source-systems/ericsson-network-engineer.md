@@ -1024,6 +1024,46 @@ get no `out_structure`). Add one via a run script: read `db.setting("mywcom.stru
 add the key, `db.setSetting("mywcom.structures", value)` (commit). Example: `wall_box` for
 SDU drops when the customer wants SDU→`wall_box`.
 
+### Re-running containment after a structure re-number (CRITICAL)
+The NetworkView managers (`ensureStructuresFor`, `house`) only populate **empty** computed
+fields (idempotent). If structures are renumbered/reloaded (e.g. after a mapping change),
+equipment `housing`/`root_housing` and `route.in/out_structure` keep **stale** old-id values,
+and the connection validator reports `root_housing derived_value_mismatch`. **Clear the
+computed fields first**, then re-run containment:
+
+```sql
+UPDATE data.route SET in_structure=NULL, out_structure=NULL;
+UPDATE data.copper_load_coil   SET housing=NULL, root_housing=NULL;
+UPDATE data.copper_terminal    SET housing=NULL, root_housing=NULL;
+UPDATE data.copper_splice_closure SET housing=NULL, root_housing=NULL;
+```
+Symptom of the stale state: containment reports far fewer housed features than expected.
+
+### Line of count (ENE ADMIN_LABEL → mywcom_line_of_count)
+ENE **ADMIN_LABEL** (`ADMIN_CABLE_NAME` + `LOW_RANGE..HIGH_RANGE`, `RELATED_CLASS=TRANSMEDIA`)
+maps to NMT **`mywcom_line_of_count`** (+ `mywcom_line_of_count_section`). Build these
+**post-load via the comms `LOCManager`** so geometry/labels are platform-computed:
+
+```python
+nw = NetworkView(db.view(), MywProgressHandler())
+seg = db.view().get("mywcom_copper_segment/<id>")   # origin = the related cable's segment
+loc_data = []
+if low > 1:
+    loc_data.append({"low": 1, "high": low - 1})    # unassigned gap: physical is numbered
+loc_data.append({"low": low, "high": high,          # positionally from pin 1, so the gap
+                 "name": admin_name, "status": "",  # aligns physical == logical == source
+                 "physical": False})
+nw.loc_mgr.updateLoc(seg, loc_data, origin=True)     # creates LOC + section on the segment
+```
+- Section **`container` must be a segment** (`labelForLOCSection` returns "" otherwise); the
+  section geometry must match the container geometry (validator `check_geometry_matches`).
+- The named `loc_data` entry **must include `name` and `status`** keys; `status=""` is fine
+  because a truthy `name` prevents it being treated as an unassigned range.
+- Validation requires: `origin` reference resolves, LOC not `stale`, and per-name ranges do
+  not overlap at the same origin.
+- Multi-span cables: use `LOCManager.rippleTraceAndUpdate(...)` to extend sections along the
+  connected segments; single-span cables need only the origin section.
+
 ### Connection sides (avoid the `KeyError: 'a'` validator crash)
 Connection `in_side`/`out_side` must be **`in`/`out`** (the keys of `equip_n_pins_fields`),
 never `a`/`z` for endpoints the validator port-checks. Rules that pass `comms_db validate`:
