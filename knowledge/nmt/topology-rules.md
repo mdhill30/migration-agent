@@ -64,6 +64,58 @@ seg5.root_housing = Structure C (internal)
   - Explicit cable slack or storage loops exist at a structure
 - For migration, **transit-only chains are preferred** unless the source data has splice/termination detail that requires internal segments
 
+#### Build chain links by PHYSICAL ADJACENCY, not source order (CRITICAL)
+
+`in_segment`/`out_segment` must link segments that actually meet at a shared
+structure. Do **not** chain segments in the order they appear in the source
+association list (e.g. an ENE `TRANSMEDIA_SPAN_ASSOCIATION` `SHAPE_NAME` order):
+that order includes parallel and branching spans, so consecutive list entries
+often share no structure. Linking them anyway produces `geom_mismatch_at`
+against the neighbour segment (the linked segments can be kilometres apart).
+
+Correct rule — link only at a **clean pass-through**: a structure where exactly
+one segment ends (its OUT structure) and exactly one different segment begins
+(its IN structure). Symmetric by construction, so it also satisfies the two-way
+`in_segment`/`out_segment` reference check. Branch points and parallel spans are
+left unlinked (a NULL link is not a validation error; a wrong link is).
+
+```python
+def chain_links(seg_list):  # seg_list: [(seg_id, in_struct, out_struct), ...] per cable
+    outs, ins = defaultdict(list), defaultdict(list)
+    for sid, fn, tn in seg_list:
+        ins[fn].append(sid); outs[tn].append(sid)
+    in_of, out_of = {}, {}
+    for x in set(list(ins) + list(outs)):
+        o, i = outs.get(x, []), ins.get(x, [])
+        if len(o) == 1 and len(i) == 1 and o[0] != i[0]:
+            out_of[o[0]] = i[0]; in_of[i[0]] = o[0]
+    return in_of, out_of
+```
+
+Real-world impact: on one exchange this cut segment `geom_mismatch_at neighbour`
+from ~15,300 to 6. Note the segment *paths* were already correct (each equalled
+its housing route path) — only the link fields were wrong, so the fix can be
+applied with a targeted `load --update` of the segment CSVs (no full reload).
+
+#### Drop / stub cables with no route-derived segment — synthesise a route
+
+Drop, stub and tether cables often carry no association to a route span (or only
+to conduit / inside-plant spans), so they produce no route-derived segment and
+their connections cannot bind. Two housing strategies keep them validation-clean:
+
+- **Single connector structure** (segment `in_structure == out_structure`): house
+  the segment IN that structure with a **degenerate 2-point path** at the
+  structure's point (`LINESTRING(pt, pt)`). The validator treats `in==out`
+  segments as internal and checks the path against the structure point.
+- **Two connector structures A, B**: synthesise a straight **route A→B** (a real
+  `route` feature) and house the segment in it. Containment then snaps the
+  synthetic route's endpoints to the real structures A and B, so the segment's
+  structures and `root_housing` all line up. This reuses the normal route +
+  containment machinery rather than inventing a special case.
+
+Adding synthetic routes changes `route.csv`, so it requires a full reload +
+containment (not a targeted update).
+
 ### Cable Direction (Forward Flag)
 
 Each cable segment has a `forward` flag:

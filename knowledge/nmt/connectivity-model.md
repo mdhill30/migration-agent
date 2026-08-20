@@ -538,6 +538,29 @@ WHERE NOT (a.in_high < b.in_low OR b.in_high < a.in_low);
 
 **Fix**: Resolve overlapping pin assignments. Flag as DQR issue if ambiguous.
 
+> **CAUTION — `duplicate_connection` is often real, not a bug.** The validator
+> flags two connections binding the same object+side with overlapping pin ranges.
+> Before "fixing" it, distinguish two very different causes:
+> - **Exact-duplicate rows** (identical in/out object+side+low+high) — genuine
+>   redundancy from repeated source records (e.g. one record per tube/ribbon, or
+>   per-tile export duplication). Deduplicate on
+>   `(in_object, in_side, in_low, in_high, out_object, out_side, out_low, out_high)`.
+> - **Overlapping ranges to DIFFERENT destinations** — this is real copper **pair
+>   multipling** (a feeder pair bridged/presented at multiple distribution points)
+>   or the fibre equivalent. It is faithful source connectivity. **Do NOT delete
+>   it to satisfy the validator** — that destroys real network. Query the loaded
+>   table for exact-duplicate groups first; if there are none, the overlaps are
+>   multipling. Push back to the customer to confirm intent; record as a DQR
+>   `accept_pushback` item.
+
+> **Internal equipment components are not connectable equipment.** Source systems
+> model assemblies like a loading coil + its build-out capacitors as separate
+> EQUIPMENT with connections wiring them together (equipment↔equipment). These
+> are internal to the assembly, not network elements — emitting them creates
+> spurious equipment↔equipment connections and multi-way pin conflicts. Map only
+> the network-bearing device (e.g. the load coil) and skip source connections
+> where BOTH endpoints are equipment.
+
 ### Check 2: Pin Range Validity
 
 ```sql

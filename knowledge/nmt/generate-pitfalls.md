@@ -1,5 +1,42 @@
 # NMT Generate — Common Pitfalls & Lessons Learned
 
+## Reading `comms_db validate data` output (CRITICAL)
+
+`comms_db {db} validate data {category}` prints each issue as a per-record
+"witterage" line, then a summary table whose `warnings`/`errors` columns show
+`-` (dashes). **The `-` does NOT mean zero / clean** — the tool does not tally
+the detail lines into that summary. The witterage lines ARE the findings. Judge
+pass/fail by parsing/counting the detail lines, never by the `-` in the summary.
+
+- `validate data '*'` can return almost instantly and check nothing meaningful;
+  run per-category (`structures`, `routes`, `cables`, `segments`, `connections`,
+  `line_of_count`, ...) to get real results.
+- Most detail messages are emitted via `self.error(...)` in `data_validator.py`
+  (e.g. `not_set`, `geom_mismatch_at`, `derived_value_mismatch`,
+  `duplicate_connection`) — treat them as errors, and get the type breakdown with
+  `... | sed -E 's/[0-9]+//g' | sort | uniq -c | sort -rn`.
+
+---
+
+## Segment `derived_value_mismatch` vs route (containment snapping)
+
+Containment computes each route's `in_structure`/`out_structure` by snapping the
+route geometry endpoints to structures. Where several structures are near an
+endpoint (e.g. a `pole` and a coincident-ish `route_junction`), containment may
+pick a **different** structure than the segment's source-declared FROM/TO — up to
+tens of metres away — producing `in/out_structure derived_value_mismatch route`.
+
+- The segment is usually geometrically correct (its path ends on its declared
+  structure); the route/containment choice differs. Route validation itself does
+  not flag these.
+- Do **not** blindly force segment structures to the route (trades the error for
+  a geometry mismatch) or force route endpoints to the segment (risks
+  disconnecting the route-junction network the trace engine relies on).
+- Reasonable treatment: **accept** as a containment-snapping nuance and record in
+  the DQR, unless the offsets are large enough to break connectivity.
+
+---
+
 ## Schema Field Warnings
 
 When `myw_db load` reports fields not in the schema:
